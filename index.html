@@ -594,9 +594,8 @@ function rotateCW(matrix) {
   return matrix[0].map((_, c) => matrix.map((_, r) => matrix[N-1-r][c]));
 }
 function rotateCCW(matrix) {
-  // Correct CCW: reverse row order first, then transpose
-  const rev = matrix.map(r => [...r]).reverse();
-  return rev[0].map((_, c) => rev.map(row => row[c]));
+  // True inverse of CW: applying CW three times = one CCW
+  return rotateCW(rotateCW(rotateCW(matrix)));
 }
 
 function tryRotateSRS(dir) { // dir: 1=CW, -1=CCW
