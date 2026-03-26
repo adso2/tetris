@@ -142,12 +142,18 @@
   }
   .panel-value.pink { color: var(--glow-pink); text-shadow: 0 0 8px var(--glow-pink); }
 
-  #board-wrapper { position: relative; flex-shrink: 0; }
+  #board-wrapper {
+    position: relative; flex-shrink: 0;
+    /* Solid background matches body gradient center — blocks body::after grid lines */
+    background: #0e1a3a;
+    isolation: isolate; /* creates new stacking context, clips pseudo-elements */
+  }
   #board {
     display: block; image-rendering: pixelated;
     border: 1px solid rgba(0,245,255,0.35);
     box-shadow: 0 0 12px rgba(0,245,255,0.15), 0 0 30px rgba(0,245,255,0.08);
     border-radius: 2px;
+    background: #080e20; /* solid dark — prevents background grid showing through */
   }
 
   /* Overlays — full screen */
@@ -372,11 +378,15 @@
 </div>
 
 <div class="game-area">
-  <!-- Left panel: hold only -->
+  <!-- Left panel: hold + combo indicator -->
   <div class="side-panel">
     <div class="panel-box hold-box">
       <div class="panel-label">HOLD</div>
       <canvas id="hold-canvas" width="56" height="84"></canvas>
+    </div>
+    <div class="panel-box" id="combo-box" style="align-items:center;min-height:48px;justify-content:center;opacity:0;transition:opacity 0.3s">
+      <div id="combo-label" style="font-size:5px;color:var(--glow-cyan);text-shadow:0 0 6px var(--glow-cyan);text-align:center;letter-spacing:0.05em;line-height:1.8"></div>
+      <div id="combo-pts" style="font-size:7px;color:var(--glow-yellow);text-shadow:0 0 8px var(--glow-yellow);text-align:center"></div>
     </div>
   </div>
 
@@ -394,6 +404,7 @@
         <div style="font-size:4px;color:var(--dim);margin-top:4px;text-align:center">1 – 20</div>
       </div>
       <button class="btn" id="start-btn">START GAME</button>
+      <button class="btn pink-btn" id="start-leaderboard-btn" style="font-size:clamp(6px,1.4vw,9px)">🏆 HIGH SCORES</button>
     </div>
 
     <!-- Pause -->
@@ -457,12 +468,35 @@
       </div>
     </div>
 
-    <!-- Game Over -->
+    <!-- Game Over — step 1: show score, ask for tag if leaderboard-worthy -->
     <div class="overlay hidden" id="gameover-screen">
       <h2>GAME<br>OVER</h2>
-      <div class="panel-value" id="final-score" style="font-size:9px"></div>
-      <div id="new-best" class="hidden" style="font-size:6px;color:var(--glow-pink);text-shadow:0 0 8px var(--glow-pink);text-align:center;line-height:2">★ NEW HIGH SCORE! ★</div>
+      <div class="panel-value" id="final-score" style="font-size:clamp(9px,2vw,14px)"></div>
+      <div id="new-best" class="hidden" style="font-size:clamp(6px,1.4vw,10px);color:var(--glow-pink);text-shadow:0 0 8px var(--glow-pink);text-align:center;line-height:2">★ NEW HIGH SCORE! ★</div>
+
+      <!-- Tag entry — shown only when score qualifies for top 5 -->
+      <div id="tag-entry" class="hidden" style="display:flex;flex-direction:column;align-items:center;gap:8px;width:100%">
+        <div style="font-size:clamp(6px,1.4vw,9px);color:var(--dim);text-align:center;line-height:2">YOU MADE THE TOP 5!<br>ENTER YOUR TAG:</div>
+        <input id="tag-input" maxlength="3" autocomplete="off" spellcheck="false"
+          style="font-family:inherit;font-size:clamp(18px,4vw,28px);width:90px;text-align:center;
+                 background:transparent;border:2px solid var(--glow-cyan);border-radius:4px;
+                 color:var(--glow-cyan);text-shadow:0 0 8px var(--glow-cyan);padding:6px 4px;
+                 outline:none;text-transform:uppercase;letter-spacing:0.2em">
+        <div style="display:flex;gap:8px;width:100%">
+          <button class="btn" id="tag-submit-btn" style="flex:1">✓ SAVE</button>
+          <button class="btn pink-btn" id="tag-skip-btn" style="flex:1">✕ SKIP</button>
+        </div>
+      </div>
+
       <button class="btn" id="restart-btn">PLAY AGAIN</button>
+      <button class="btn pink-btn" id="go-leaderboard-btn" style="font-size:clamp(6px,1.4vw,9px)">🏆 HIGH SCORES</button>
+    </div>
+
+    <!-- Leaderboard overlay -->
+    <div class="overlay hidden" id="leaderboard-screen">
+      <h2 style="color:var(--glow-yellow);text-shadow:0 0 10px var(--glow-yellow)">🏆 HIGH SCORES</h2>
+      <div id="leaderboard-list" style="width:100%;display:flex;flex-direction:column;gap:6px"></div>
+      <button class="btn" id="leaderboard-close-btn">✕ CLOSE</button>
     </div>
 
     <!-- Quit Confirm -->
@@ -524,7 +558,7 @@ const nextCtx  = nextCvs.getContext('2d');
 const holdCvs  = document.getElementById('hold-canvas');
 const holdCtx  = holdCvs.getContext('2d');
 
-const COLS = 10, ROWS = 20, BUFFER = 2; // BUFFER = hidden rows above visible area
+const COLS = 10, ROWS = 20, BUFFER = 3; // BUFFER = hidden rows above visible area
 const TOTAL_ROWS = ROWS + BUFFER;
 let CELL = 28;
 
@@ -604,17 +638,21 @@ function tryRotateSRS(dir) { // dir: 1=CW, -1=CCW
   const key       = `${fromState}>${toState}`;
   const newMatrix = dir === 1 ? rotateCW(current.matrix) : rotateCCW(current.matrix);
   const kicks     = (current.type === 'I' ? KICKS_I : current.type === 'O' ? [[0,0]] : KICKS_JLSTZ)[key] || [[0,0]];
-  for (const [dx, dy] of kicks) {
-    // SRS dy: positive = up = negative canvas y
+  for (let ki = 0; ki < kicks.length; ki++) {
+    const [dx, dy] = kicks[ki];
     if (valid(current, dx, -dy, newMatrix)) {
       current.matrix   = newMatrix;
       current.x       += dx;
       current.y       -= dy;
       current.rotState = toState;
+      lastKickIdx      = ki;
+      // T-spin: T piece + used a non-zero kick + grounded after rotation
+      lastWasTSpin = (current.type === 'T' && ki > 0 && !valid(current, 0, 1));
       resetLock();
       return;
     }
   }
+  lastWasTSpin = false;
 }
 
 // ── Settings ──────────────────────────────────────────────────────────────────
@@ -633,27 +671,143 @@ function saveSettings() {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch(e) {}
 }
 
-// ── High score ────────────────────────────────────────────────────────────────
+// ── Leaderboard (localStorage top-5) ─────────────────────────────────────────
+const HS_KEY = 'tetris_leaderboard';
+
+function loadLeaderboard() {
+  try {
+    const d = JSON.parse(localStorage.getItem(HS_KEY));
+    return Array.isArray(d) ? d : [];
+  } catch(e) { return []; }
+}
+
+function saveLeaderboard(board) {
+  try { localStorage.setItem(HS_KEY, JSON.stringify(board)); } catch(e) {}
+}
+
+function getBestScore() {
+  const lb = loadLeaderboard();
+  return lb.length ? lb[0].score : 0;
+}
+
+function qualifiesForTop5(score) {
+  if (score <= 0) return false;
+  const lb = loadLeaderboard();
+  return lb.length < 5 || score > lb[lb.length - 1].score;
+}
+
+function insertScore(tag, score) {
+  const lb = loadLeaderboard();
+  const date = new Date().toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+  lb.push({ tag: (tag||'???').toUpperCase().slice(0,3), score, date });
+  lb.sort((a,b) => b.score - a.score);
+  lb.splice(5); // keep top 5
+  saveLeaderboard(lb);
+  highScore = getBestScore();
+  updateUI();
+}
+
+function renderLeaderboard() {
+  const lb = loadLeaderboard();
+  const el = document.getElementById('leaderboard-list');
+  if (!lb.length) {
+    el.innerHTML = '<div style="font-size:clamp(7px,1.5vw,10px);color:var(--dim);text-align:center;padding:16px 0">NO SCORES YET.<br>PLAY A GAME!</div>';
+    return;
+  }
+  const medals = ['🥇','🥈','🥉','4','5'];
+  el.innerHTML = lb.map((e,i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;
+                background:rgba(255,255,255,0.04);border-radius:4px;
+                border:1px solid rgba(255,255,255,0.07)">
+      <span style="font-size:clamp(8px,1.6vw,12px);min-width:20px;text-align:center">${medals[i]}</span>
+      <span style="font-size:clamp(9px,2vw,14px);color:var(--glow-cyan);
+                   text-shadow:0 0 6px var(--glow-cyan);min-width:38px;letter-spacing:0.1em">${e.tag}</span>
+      <span style="font-size:clamp(9px,2vw,13px);color:var(--glow-yellow);
+                   text-shadow:0 0 6px var(--glow-yellow);flex:1;text-align:right">${e.score.toLocaleString()}</span>
+      <span style="font-size:clamp(5px,1.1vw,8px);color:var(--dim);min-width:60px;text-align:right">${e.date}</span>
+    </div>`).join('');
+}
+
+function openLeaderboard() {
+  renderLeaderboard();
+  document.querySelectorAll('.overlay').forEach(o => o.classList.add('hidden'));
+  document.getElementById('leaderboard-screen').classList.remove('hidden');
+}
+
 let highScore = 0;
-function loadHS() { try { return parseInt(localStorage.getItem('tetris_hs')||'0',10); } catch(e){ return 0; } }
-function saveHS(s) { try { localStorage.setItem('tetris_hs', s); } catch(e) {} }
 
 // ── Vibration ─────────────────────────────────────────────────────────────────
-// Must be called within or immediately after a user gesture (touch/click) for
-// navigator.vibrate to work on mobile browsers.
-function vib(pattern) {
-  if (!settings.vibration) return;
+// Android: navigator.vibrate  |  iOS: AudioContext click burst (triggers Taptic Engine)
+// iOS does NOT support navigator.vibrate at all — need the audio workaround.
+const _isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+let _vibAudioCtx = null;
+
+function _ensureVibAudio() {
+  if (!_vibAudioCtx) {
+    try { _vibAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+  }
+  if (_vibAudioCtx && _vibAudioCtx.state === 'suspended') {
+    _vibAudioCtx.resume();
+  }
+}
+
+// iOS haptic: plays a sub-millisecond silent click through AudioContext.
+// This reliably triggers the Taptic Engine on iPhones running iOS 13+
+// when called directly inside a user touch event.
+function _iosHaptic(count, intensity) {
+  if (!_vibAudioCtx) return;
   try {
-    if (navigator.vibrate) navigator.vibrate(pattern);
+    for (let i = 0; i < count; i++) {
+      const buf = _vibAudioCtx.createBuffer(1, 1, 22050);
+      const src = _vibAudioCtx.createBufferSource();
+      src.buffer = buf;
+      // Gain controls intensity
+      const g = _vibAudioCtx.createGain();
+      g.gain.value = intensity;
+      src.connect(g);
+      g.connect(_vibAudioCtx.destination);
+      src.start(_vibAudioCtx.currentTime + i * 0.05); // 50ms apart for multi-taps
+    }
   } catch(e) {}
 }
-function vibMove()   { vib(8); }          // 1 short tick per column
-function vibRotate() { vib(12); }         // slightly longer — distinct from move
-function vibDrop()   { vib([20,10,20]); } // double thud for hard drop
-function vibLine()   { if (settings.vibLines) vib(40); } // line clear buzz (separate toggle)
-function vibBest()   { vib([80,40,80,40,150]); }
 
-// ── Game state ────────────────────────────────────────────────────────────────
+function vib(pattern, count, intensity) {
+  if (!settings.vibration) return;
+  if (_isIOS) {
+    _ensureVibAudio();
+    _iosHaptic(count || 1, intensity || 1.0);
+  } else {
+    try { if (navigator.vibrate) navigator.vibrate(pattern); } catch(e) {}
+  }
+}
+
+function vibMove()   { vib(8,   1, 1.0); }
+function vibRotate() { vib(12,  1, 1.0); }
+function vibDrop()   { vib([20,10,20], 2, 1.0); }
+function vibLine()   { if (settings.vibLines) vib(40, 3, 1.0); }
+function vibBest()   { vib([80,40,80,40,150], 5, 1.0); }
+
+// ── Combo & bonus state ───────────────────────────────────────────────────────
+let combo = 0;          // consecutive clears counter (resets on no-clear lock)
+let backToBack = false; // true after a Tetris or T-spin clear
+let lastWasTSpin = false; // set by tryRotateSRS if last rotation was a T-spin
+let lastKickIdx = -1;   // wall kick index used for last rotation
+let comboFadeTimer = null;
+
+function showComboIndicator(label, pts) {
+  const box = document.getElementById('combo-box');
+  document.getElementById('combo-label').textContent = label;
+  document.getElementById('combo-pts').textContent = pts ? '+'+pts : '';
+  box.style.opacity = '1';
+  if (comboFadeTimer) clearTimeout(comboFadeTimer);
+  comboFadeTimer = setTimeout(() => {
+    box.style.opacity = '0';
+  }, 1800);
+}
+function hideComboIndicator() {
+  if (comboFadeTimer) clearTimeout(comboFadeTimer);
+  document.getElementById('combo-box').style.opacity = '0';
+}
 let board, current, nextPieces, held, canHold;
 let score, level, lines, gameRunning, paused, animId;
 let bag = [];
@@ -663,10 +817,12 @@ function initGame(startLevel = 1) {
   bag = [];
   score = 0;
   level = Math.max(1, Math.min(20, Math.floor(startLevel)));
-  lines = (level - 1) * 10; // lines already "cleared" to match the starting level
+  lines = (level - 1) * 10;
   held = null; canHold = true;
   isLocking = false; lockTimer = 0; lockMoves = 0;
   dropCounter = 0; lastTime = 0;
+  combo = 0; backToBack = false; lastWasTSpin = false; lastKickIdx = -1;
+  hideComboIndicator();
   nextPieces = [spawnPiece(), spawnPiece(), spawnPiece()];
   current = shiftNext();
   gameRunning = true; paused = false;
@@ -722,7 +878,11 @@ function loop(time=0) {
     if (grounded) {
       if (!isLocking) { isLocking = true; lockTimer = 0; }
       lockTimer += delta;
-      if (lockTimer >= lockDelay()) { lock(); }
+      if (lockTimer >= lockDelay()) {
+        // If piece is still in an invalid position (spawn-blocked), end the game
+        if (!valid(current, 0, 0)) { endGame(); return; }
+        lock();
+      }
     } else {
       isLocking = false; lockTimer = 0;
       if (dropCounter >= dropInterval()) { moveDown(); dropCounter = 0; }
@@ -748,8 +908,8 @@ function valid(piece, dx=0, dy=0, mat=null) {
 function tryRotate()     { tryRotateSRS( 1); }
 function tryRotateLeft() { tryRotateSRS(-1); }
 
-function moveLeft()  { if (valid(current,-1,0)) { current.x--; resetLock(); } }
-function moveRight() { if (valid(current, 1,0)) { current.x++; resetLock(); } }
+function moveLeft()  { if (valid(current,-1,0)) { current.x--; lastWasTSpin=false; resetLock(); } }
+function moveRight() { if (valid(current, 1,0)) { current.x++; lastWasTSpin=false; resetLock(); } }
 
 function resetLock() {
   // Reset lock timer when player moves/rotates while grounded, up to max resets
@@ -784,50 +944,137 @@ function hold() {
     current = shiftNext();
   }
   canHold = false;
+  // Clear spawn-blocked lock state on hold swap
+  if (valid(current, 0, 0)) { isLocking = false; lockTimer = 0; }
 }
 
 function lock() {
+  // Check lock-out: piece locked entirely in the buffer zone (above visible area)
   let allAbove = true;
   for (let r=0; r<current.matrix.length; r++) for (let c=0; c<current.matrix[r].length; c++) {
     if (!current.matrix[r][c]) continue;
     const ny = current.y+r;
     if (ny >= BUFFER) allAbove = false;
-    if (ny < 0) { endGame(); return; } // truly off-top
+    if (ny < 0) { endGame(); return; } // truly off the top of the board
     board[ny][current.x+c] = current.type;
   }
   isLocking = false; lockTimer = 0; lockMoves = 0;
+
+  // If the piece locked entirely above the visible area, game over
+  if (allAbove) { endGame(); return; }
+
   clearLines();
-  current = shiftNext();
+  const next = shiftNext();
   canHold = true;
-  // Game over: new piece overlaps existing blocks, or entire locked piece was above visible area
-  if (!valid(current,0,0) || allAbove) endGame();
+
+  // Block-out check: if the new piece spawns overlapping existing blocks,
+  // give the player the full lock delay to try to escape (move/rotate out).
+  // Only end the game when THAT piece actually locks and is still blocked.
+  current = next;
+  if (!valid(current, 0, 0)) {
+    // Mark it as spawn-blocked — the loop will lock it after lockDelay
+    // giving the player a chance to rotate/move out first.
+    isLocking = true;
+    lockTimer = 0;
+  }
 }
 
 function clearLines() {
-  let cleared=0;
-  for (let r=TOTAL_ROWS-1; r>=0; r--) {
-    if (board[r].every(c=>c!==null)) {
-      board.splice(r,1); board.unshift(Array(COLS).fill(null));
+  let cleared = 0;
+  for (let r = TOTAL_ROWS-1; r >= 0; r--) {
+    if (board[r].every(c => c !== null)) {
+      board.splice(r, 1); board.unshift(Array(COLS).fill(null));
       cleared++; r++;
     }
   }
-  if (cleared) {
-    const pts=[0,100,300,500,800];
-    score += (pts[cleared]||800)*level;
-    lines += cleared;
-    level = Math.floor(lines/10)+1;
-    vibLine();
-    if (score>highScore) { highScore=score; saveHS(highScore); }
-    updateUI();
+
+  if (!cleared) {
+    // No clear — reset combo
+    combo = 0;
+    lastWasTSpin = false;
+    return;
   }
+
+  // ── Detect specials ───────────────────────────────────────────────────────
+  const isTSpin   = lastWasTSpin; // set in tryRotateSRS, cleared on any move
+  const isTetris  = cleared === 4;
+  const isSpecial = isTSpin || isTetris; // qualifies for B2B
+  const isAllClear = board.every(row => row.every(c => c === null));
+
+  // ── Base points (Guideline) ───────────────────────────────────────────────
+  let baseLabel = '';
+  let basePts = 0;
+  if (isTSpin) {
+    const tspinPts = [0, 800, 1200, 1600];
+    basePts = (tspinPts[cleared] || 1600) * level;
+    baseLabel = cleared === 1 ? 'T-SPIN\nSINGLE' : cleared === 2 ? 'T-SPIN\nDOUBLE' : 'T-SPIN\nTRIPLE';
+  } else {
+    const pts = [0, 100, 300, 500, 800];
+    basePts = (pts[cleared] || 800) * level;
+    baseLabel = ['', 'SINGLE', 'DOUBLE', 'TRIPLE', 'TETRIS!'][cleared] || '';
+  }
+
+  // ── Back-to-back bonus (+50% on top) ─────────────────────────────────────
+  let b2bBonus = 0;
+  if (isSpecial && backToBack) {
+    b2bBonus = Math.floor(basePts * 0.5);
+    baseLabel = 'B2B ' + baseLabel;
+  }
+  backToBack = isSpecial; // update for next piece
+
+  // ── Combo bonus ───────────────────────────────────────────────────────────
+  combo++;
+  const comboBonus = combo >= 2 ? 50 * (combo - 1) * level : 0;
+
+  // ── All-clear bonus ───────────────────────────────────────────────────────
+  const allClearBonus = isAllClear ? 1400 * level : 0;
+  if (isAllClear) baseLabel = 'ALL\nCLEAR!';
+
+  // ── Apply total score ─────────────────────────────────────────────────────
+  const totalBonus = basePts + b2bBonus + comboBonus + allClearBonus;
+  score += totalBonus;
+  lines += cleared;
+  level = Math.floor(lines / 10) + 1;
+  vibLine();
+  if (score > highScore) { highScore = getBestScore(); }
+  updateUI();
+
+  // ── Build indicator text ──────────────────────────────────────────────────
+  let indicatorLabel = baseLabel;
+  let indicatorPts   = totalBonus;
+
+  // Combo streak overrides label if no special
+  if (!isTSpin && !isTetris && !isAllClear && combo >= 2) {
+    indicatorLabel = combo + 'x COMBO!';
+  }
+
+  if (indicatorLabel) showComboIndicator(indicatorLabel, indicatorPts);
+
+  lastWasTSpin = false;
 }
 
 function endGame() {
   gameRunning = false;
-  const isNew = score >= highScore && score > 0;
-  if (isNew) { highScore=score; saveHS(highScore); vibBest(); }
-  document.getElementById('final-score').textContent = 'SCORE: '+score;
+  const best = getBestScore();
+  const isNew = score > 0 && score > best;
+  if (isNew) vibBest();
+
+  document.getElementById('final-score').textContent = 'SCORE: ' + score.toLocaleString();
   document.getElementById('new-best').classList.toggle('hidden', !isNew);
+
+  // Show tag entry only if score qualifies for top 5
+  const tagEntry = document.getElementById('tag-entry');
+  if (qualifiesForTop5(score)) {
+    tagEntry.classList.remove('hidden');
+    tagEntry.style.display = 'flex';
+    const inp = document.getElementById('tag-input');
+    inp.value = '';
+    setTimeout(() => inp.focus(), 100);
+  } else {
+    tagEntry.classList.add('hidden');
+    tagEntry.style.display = 'none';
+  }
+
   document.getElementById('gameover-screen').classList.remove('hidden');
 }
 
@@ -856,6 +1103,9 @@ function ghostY() {
 
 function draw() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
+  // Fill solid background so body::after grid lines don't bleed through
+  ctx.fillStyle = '#080e20';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
   // Grid
   ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1;
   for (let r=0;r<ROWS;r++) { ctx.beginPath(); ctx.moveTo(0,r*CELL); ctx.lineTo(canvas.width,r*CELL); ctx.stroke(); }
@@ -1150,6 +1400,8 @@ function onTouchStart(e) {
   const t = e.touches[0];
   if (isUIEl(t.clientX, t.clientY)) return; // let hold/pause handle it
   e.preventDefault();
+  // Unlock iOS AudioContext on first touch gesture — required before haptics work
+  if (_isIOS) _ensureVibAudio();
   touchStartX    = t.clientX;
   touchStartY    = t.clientY;
   touchLastX     = t.clientX;
@@ -1304,9 +1556,43 @@ document.getElementById('restart-btn').addEventListener('click', () => {
   document.getElementById('start-screen').classList.remove('hidden');
 });
 
+// Tag submit
+document.getElementById('tag-submit-btn').addEventListener('click', () => {
+  const tag = document.getElementById('tag-input').value.trim().toUpperCase() || '???';
+  insertScore(tag, score);
+  document.getElementById('tag-entry').classList.add('hidden');
+  document.getElementById('tag-entry').style.display = 'none';
+});
+
+// Tag input: force uppercase, submit on Enter
+document.getElementById('tag-input').addEventListener('input', e => {
+  e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,'');
+});
+document.getElementById('tag-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('tag-submit-btn').click();
+});
+
+// Skip tag entry
+document.getElementById('tag-skip-btn').addEventListener('click', () => {
+  document.getElementById('tag-entry').classList.add('hidden');
+  document.getElementById('tag-entry').style.display = 'none';
+});
+
+// Leaderboard from game over screen
+document.getElementById('go-leaderboard-btn').addEventListener('click', openLeaderboard);
+
+// Leaderboard from start screen
+document.getElementById('start-leaderboard-btn').addEventListener('click', openLeaderboard);
+
+// Leaderboard close — go back to start screen
+document.getElementById('leaderboard-close-btn').addEventListener('click', () => {
+  document.getElementById('leaderboard-screen').classList.add('hidden');
+  document.getElementById('start-screen').classList.remove('hidden');
+});
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 loadSettings();
-highScore = loadHS();
+highScore = getBestScore();
 updateUI(); // show saved high score immediately on start screen
 window.addEventListener('resize', resize);
 resize(); // resize draws the empty board safely now
