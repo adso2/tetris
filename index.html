@@ -69,7 +69,7 @@
   }
   .top-bar {
     display: flex; justify-content: space-around; align-items: center;
-    width: 100%; padding: 4px 0;
+    width: 100%; padding: 6px 0;
     background: transparent;
     border-bottom: 1px solid rgba(255,255,255,0.08);
     border-radius: 4px;
@@ -79,8 +79,14 @@
     display: flex; flex-direction: column; align-items: center; gap: 3px;
     flex: 1;
   }
+  .top-stat .panel-label { font-size: 7px; color: var(--dim); letter-spacing: 0.1em; }
+  .top-stat .panel-value { font-size: 13px; }
+  .top-stat .panel-value.pink { color: var(--glow-pink); text-shadow: 0 0 8px var(--glow-pink); }
   .hold-box {
-    padding: 8px 6px;
+    padding: 6px 4px;
+    align-items: center;
+    justify-content: center;
+    min-height: 108px;
   }
   #pause-btn-box {
     padding: 16px 6px;
@@ -115,22 +121,22 @@
 
   .side-panel {
     display: flex; flex-direction: column; gap: 6px;
-    min-width: 90px; width: 90px;
+    min-width: 60px; width: 60px;
   }
 
   .panel-box {
     background: transparent;
     border: 1px solid rgba(255,255,255,0.08);
     border-radius: 4px;
-    padding: 6px 5px;
-    display: flex; flex-direction: column; gap: 4px;
+    padding: 4px 3px;
+    display: flex; flex-direction: column; gap: 3px;
   }
   .panel-label {
-    font-size: 5px; color: var(--dim);
+    font-size: 6px; color: var(--dim);
     letter-spacing: 0.1em; text-align: center;
   }
   .panel-value {
-    font-size: 8px; color: var(--glow-yellow);
+    font-size: 10px; color: var(--glow-yellow);
     text-shadow: 0 0 8px var(--glow-yellow);
     text-align: center; word-break: break-all;
   }
@@ -144,29 +150,39 @@
     border-radius: 2px;
   }
 
-  /* Overlays */
+  /* Overlays — full screen */
   .overlay {
-    position: absolute; inset: 0;
+    position: fixed; inset: 0;
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
-    background: rgba(5,10,30,0.92);
-    gap: 12px; border-radius: 2px; z-index: 10;
-    overflow-y: auto; padding: 16px 10px;
+    background: rgba(4,8,24,0.97);
+    gap: 12px; border-radius: 0; z-index: 200;
+    overflow-y: auto; padding: 24px 20px;
+  }
+  /* Content box inside overlay — constrained width on desktop */
+  .overlay > *, .overlay > div {
+    max-width: clamp(320px, 50vw, 520px); width: 100%;
+  }
+  .overlay > h2, .overlay > p {
+    max-width: clamp(320px, 50vw, 520px);
+  }
+  .overlay {
+    gap: clamp(10px, 2vw, 18px);
   }
   .overlay h2 {
-    font-size: clamp(9px, 2.5vw, 13px);
+    font-size: clamp(14px, 3.5vw, 22px);
     color: var(--glow-pink);
     text-shadow: 0 0 10px var(--glow-pink), 0 0 20px var(--glow-pink);
     text-align: center; line-height: 1.8;
   }
-  .overlay p { font-size: 6px; color: var(--dim); text-align: center; line-height: 2; }
+  .overlay p { font-size: clamp(8px, 1.6vw, 11px); color: var(--dim); text-align: center; line-height: 2; }
 
   .btn {
     background: transparent;
     border: 2px solid var(--glow-cyan);
     color: var(--glow-cyan);
-    font-family: inherit; font-size: 7px;
-    padding: 9px 14px; cursor: pointer;
+    font-family: inherit; font-size: clamp(8px, 1.8vw, 13px);
+    padding: clamp(8px, 1.5vw, 14px) clamp(12px, 2vw, 20px); cursor: pointer;
     border-radius: 3px;
     text-shadow: 0 0 8px var(--glow-cyan);
     box-shadow: 0 0 10px rgba(0,245,255,0.3);
@@ -181,10 +197,10 @@
 
   /* Settings in pause */
   .settings-section {
-    width: 100%; display: flex; flex-direction: column; gap: 8px;
+    width: 100%; display: flex; flex-direction: column; gap: clamp(8px, 1.5vw, 14px);
   }
   .settings-title {
-    font-size: 6px; color: var(--glow-cyan);
+    font-size: clamp(9px, 1.8vw, 14px); color: var(--glow-cyan);
     text-shadow: 0 0 6px var(--glow-cyan);
     letter-spacing: 0.1em; text-align: center;
     border-bottom: 1px solid var(--border);
@@ -194,14 +210,15 @@
     display: flex; align-items: center; justify-content: space-between;
     gap: 6px;
   }
-  .setting-label { font-size: 5px; color: var(--dim); flex: 1; line-height: 1.6; }
+  .setting-label { font-size: clamp(8px, 1.6vw, 12px); color: var(--dim); flex: 1; line-height: 1.8; }
+  .setting-label span { font-size: clamp(7px, 1.3vw, 10px) !important; }
   .setting-control { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 
   /* Toggle switch */
   .toggle {
-    width: 32px; height: 16px;
+    width: clamp(32px, 5vw, 44px); height: clamp(16px, 2.5vw, 22px);
     background: var(--border);
-    border-radius: 8px; position: relative;
+    border-radius: 11px; position: relative;
     cursor: pointer; transition: background 0.2s;
     border: 1px solid var(--dim);
     flex-shrink: 0;
@@ -209,23 +226,23 @@
   .toggle.on { background: var(--glow-cyan); border-color: var(--glow-cyan); }
   .toggle::after {
     content: ''; position: absolute;
-    width: 12px; height: 12px;
+    width: clamp(12px, 1.9vw, 18px); height: clamp(12px, 1.9vw, 18px);
     background: var(--bg); border-radius: 50%;
     top: 1px; left: 1px; transition: left 0.2s;
   }
-  .toggle.on::after { left: 17px; }
+  .toggle.on::after { left: calc(100% - clamp(13px, 2vw, 19px)); }
 
   /* Slider */
   .slider-wrap { display: flex; flex-direction: column; gap: 3px; align-items: center; }
-  .slider-val { font-size: 6px; color: var(--glow-yellow); text-shadow: 0 0 6px var(--glow-yellow); text-align: center; }
+  .slider-val { font-size: clamp(8px, 1.5vw, 12px); color: var(--glow-yellow); text-shadow: 0 0 6px var(--glow-yellow); text-align: center; }
   input[type=range] {
     -webkit-appearance: none; appearance: none;
-    width: 90px; height: 4px;
+    width: clamp(80px, 14vw, 130px); height: 4px;
     background: var(--border); border-radius: 2px; outline: none;
   }
   input[type=range]::-webkit-slider-thumb {
     -webkit-appearance: none; appearance: none;
-    width: 14px; height: 14px;
+    width: clamp(14px, 2.2vw, 20px); height: clamp(14px, 2.2vw, 20px);
     background: var(--glow-cyan); border-radius: 50%;
     box-shadow: 0 0 6px var(--glow-cyan); cursor: pointer;
   }
@@ -278,8 +295,8 @@
   .cp-desc { font-size: 5px; color: var(--dim); text-align: right; }
 
   /* Next pieces canvas */
-  #next-canvas { display: block; margin: 0 auto; image-rendering: pixelated; width: 86px; height: 210px; }
-  #hold-canvas { display: block; margin: 0 auto; image-rendering: pixelated; width: 86px; height: 86px; }
+  #next-canvas { display: block; margin: 0 auto; image-rendering: pixelated; width: 56px; height: 140px; }
+  #hold-canvas { display: block; margin: 0 auto; image-rendering: pixelated; width: 56px; height: 84px; }
 
   /* Level select on start screen */
   .level-select {
@@ -305,15 +322,43 @@
   #start-level-input::-webkit-inner-spin-button { -webkit-appearance: none; }
   #start-level-input:focus { box-shadow: 0 0 10px rgba(0,245,255,0.4); }
 
-  /* Full-screen touch zone — behind all UI, captures gestures anywhere on screen */
+  /* Full-screen touch zone — fixed overlay, pointer-events only where not blocked by UI */
   #touch-zone {
     position: fixed;
     inset: 0;
-    z-index: 5; /* behind game UI (z-index 10) but above background */
+    z-index: 9; /* just below game UI panels at z-index 10, but above background */
     touch-action: none;
+    pointer-events: none; /* let it be transparent by default */
   }
 
-  .hidden { display: none !important; }</style>
+  .hidden { display: none !important; }
+  /* ── Desktop: scale side panels with available space ── */
+  @media (min-width: 600px) and (pointer: fine) {
+    .side-panel {
+      width: clamp(80px, 10vw, 140px);
+      min-width: 80px;
+    }
+    #hold-canvas {
+      width: 100%; height: auto;
+      aspect-ratio: 1 / 1.5;
+      max-width: 120px;
+    }
+    #next-canvas {
+      width: 100%; height: auto;
+      aspect-ratio: 1 / 2.5;
+      max-width: 120px;
+    }
+    .panel-label { font-size: 8px; }
+    .panel-value { font-size: 13px; }
+    .panel-box { padding: 8px 6px; gap: 6px; }
+    .hold-box { min-height: 140px; }
+    #pause-btn-box { padding: 20px 8px; }
+    #pause-btn-box .panel-label { font-size: 9px; }
+    .top-stat .panel-label { font-size: 9px; }
+    .top-stat .panel-value { font-size: 16px; }
+    .top-bar { padding: 8px 0; }
+  }
+</style>
 </head>
 <body>
 
@@ -331,7 +376,7 @@
   <div class="side-panel">
     <div class="panel-box hold-box">
       <div class="panel-label">HOLD</div>
-      <canvas id="hold-canvas" width="86" height="86"></canvas>
+      <canvas id="hold-canvas" width="56" height="84"></canvas>
     </div>
   </div>
 
@@ -358,7 +403,7 @@
       <div class="settings-section">
         <div class="settings-title">── VIBRATION ──</div>
 
-        <div class="setting-row">
+        <div class="setting-row" style="margin-bottom:6px">
           <div class="setting-label">LINE CLEAR<br>BUZZ</div>
           <div class="toggle" id="toggle-vib-lines"></div>
         </div>
@@ -372,7 +417,7 @@
       <div class="settings-section">
         <div class="settings-title">── CONTROLS ──</div>
 
-        <div class="setting-row">
+        <div class="setting-row" style="margin-bottom:8px">
           <div class="setting-label">HOLD DELAY<br><span style="font-size:4px;color:var(--dim)">time before repeat starts</span></div>
           <div class="slider-wrap">
             <input type="range" id="slider-delay" min="80" max="400" step="20">
@@ -380,11 +425,19 @@
           </div>
         </div>
 
-        <div class="setting-row">
+        <div class="setting-row" style="margin-bottom:8px">
           <div class="setting-label">REPEAT SPEED<br><span style="font-size:4px;color:var(--dim)">delay between each shift</span></div>
           <div class="slider-wrap">
             <input type="range" id="slider-speed" min="30" max="200" step="10">
             <div class="slider-val" id="val-speed">80ms</div>
+          </div>
+        </div>
+
+        <div class="setting-row" style="margin-bottom:8px">
+          <div class="setting-label">TOUCH SENS.<br><span style="font-size:4px;color:var(--dim)">px per column move</span></div>
+          <div class="slider-wrap">
+            <input type="range" id="slider-touch-sens" min="10" max="80" step="5">
+            <div class="slider-val" id="val-touch-sens">30px</div>
           </div>
         </div>
 
@@ -397,8 +450,11 @@
         </div>
       </div>
 
-      <button class="btn pink-btn" id="controls-info-btn">📋 HOW TO PLAY</button>
-      <button class="btn" id="resume-btn">▶ RESUME</button>
+      <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px; width:100%">
+        <button class="btn pink-btn" id="controls-info-btn">📋 HOW TO PLAY</button>
+        <button class="btn" id="resume-btn">▶ RESUME</button>
+        <button class="btn pink-btn" id="quit-btn">✕ QUIT TO MENU</button>
+      </div>
     </div>
 
     <!-- Game Over -->
@@ -408,13 +464,23 @@
       <div id="new-best" class="hidden" style="font-size:6px;color:var(--glow-pink);text-shadow:0 0 8px var(--glow-pink);text-align:center;line-height:2">★ NEW HIGH SCORE! ★</div>
       <button class="btn" id="restart-btn">PLAY AGAIN</button>
     </div>
+
+    <!-- Quit Confirm -->
+    <div class="overlay hidden" id="quit-confirm-screen">
+      <h2>QUIT?</h2>
+      <p style="margin-bottom:4px">YOUR PROGRESS<br>WILL BE LOST</p>
+      <div style="display:flex; flex-direction:column; gap:8px; width:100%; margin-top:8px">
+        <button class="btn pink-btn" id="quit-yes-btn">✓ YES, QUIT</button>
+        <button class="btn" id="quit-no-btn">✕ NO, GO BACK</button>
+      </div>
+    </div>
   </div>
 
   <!-- Right panel -->
   <div class="side-panel">
     <div class="panel-box">
       <div class="panel-label">NEXT</div>
-      <canvas id="next-canvas" width="86" height="210"></canvas>
+      <canvas id="next-canvas" width="56" height="140"></canvas>
     </div>
     <div class="panel-box" style="cursor:pointer" id="pause-btn-box">
       <div class="panel-label">⏸ PAUSE</div>
@@ -458,18 +524,30 @@ const nextCtx  = nextCvs.getContext('2d');
 const holdCvs  = document.getElementById('hold-canvas');
 const holdCtx  = holdCvs.getContext('2d');
 
-const COLS = 10, ROWS = 20;
+const COLS = 10, ROWS = 20, BUFFER = 2; // BUFFER = hidden rows above visible area
+const TOTAL_ROWS = ROWS + BUFFER;
 let CELL = 28;
 
 function resize() {
   const vw = window.innerWidth;
   const vh = window.innerHeight || document.documentElement.clientHeight;
-  const hdrH = 42, pad = 16, sideW = 102; // wider sides to match 90px panel + gap
+  const hdrH = vw >= 600 ? 60 : 52;
+  const pad  = 12;
+  // Desktop: side panels scale with vw (clamp 80-140px) + 8px gap each
+  // Mobile:  fixed 60px + 8px gap each
+  const isDesktop = vw >= 600 && window.matchMedia('(pointer:fine)').matches;
+  const panelW = isDesktop ? Math.min(140, Math.max(80, Math.floor(vw * 0.10))) : 60;
+  const sideW  = panelW + 8;
   const availH = vh - hdrH - pad;
   const availW = vw - sideW * 2 - pad;
   CELL = Math.max(14, Math.min(Math.floor(availH / ROWS), Math.floor(availW / COLS)));
   canvas.width  = CELL * COLS;
   canvas.height = CELL * ROWS;
+  // Sync side panel DOM width so layout matches
+  document.querySelectorAll('.side-panel').forEach(p => {
+    p.style.width = panelW + 'px';
+    p.style.minWidth = panelW + 'px';
+  });
   draw();
 }
 
@@ -516,8 +594,9 @@ function rotateCW(matrix) {
   return matrix[0].map((_, c) => matrix.map((_, r) => matrix[N-1-r][c]));
 }
 function rotateCCW(matrix) {
-  const N = matrix.length;
-  return matrix[0].map((_, c) => matrix.map((_, r) => matrix[r][N-1-c])).reverse();
+  // Correct CCW: reverse row order first, then transpose
+  const rev = matrix.map(r => [...r]).reverse();
+  return rev[0].map((_, c) => rev.map(row => row[c]));
 }
 
 function tryRotateSRS(dir) { // dir: 1=CW, -1=CCW
@@ -541,7 +620,8 @@ function tryRotateSRS(dir) { // dir: 1=CW, -1=CCW
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 const SETTINGS_KEY = 'tetris_settings';
-let settings = { vibLines: true, vibMove: false, repeatDelay: 200, repeatSpeed: 80, lockDelay: 500 };
+let settings = { vibLines: true, vibMove: false, repeatDelay: 200, repeatSpeed: 80, lockDelay: 500, touchSensitivity: 30 };
+// touchSensitivity = pixels of horizontal drag required to move one column (higher = less sensitive)
 
 function loadSettings() {
   try {
@@ -572,7 +652,7 @@ let score, level, lines, gameRunning, paused, animId;
 let bag = [];
 
 function initGame(startLevel = 1) {
-  board = Array.from({length:ROWS}, () => Array(COLS).fill(null));
+  board = Array.from({length:TOTAL_ROWS}, () => Array(COLS).fill(null));
   bag = [];
   score = 0;
   level = Math.max(1, Math.min(20, Math.floor(startLevel)));
@@ -599,7 +679,7 @@ function refillBag() {
 
 function spawnPiece(type) {
   if (!type) { if (bag.length===0) refillBag(); type = bag.shift(); }
-  return { type, matrix: SHAPES[type].map(r=>[...r]), x: Math.floor(COLS/2)-Math.floor(SHAPES[type][0].length/2), y: 0, rotState: 0 };
+  return { type, matrix: SHAPES[type].map(r=>[...r]), x: Math.floor(COLS/2)-Math.floor(SHAPES[type][0].length/2), y: BUFFER, rotState: 0 };
 }
 
 function shiftNext() {
@@ -652,7 +732,7 @@ function valid(piece, dx=0, dy=0, mat=null) {
   for (let r=0; r<m.length; r++) for (let c=0; c<m[r].length; c++) {
     if (!m[r][c]) continue;
     const nx=piece.x+c+dx, ny=piece.y+r+dy;
-    if (nx<0||nx>=COLS||ny>=ROWS) return false;
+    if (nx<0||nx>=COLS||ny>=TOTAL_ROWS) return false;
     if (ny>=0 && board[ny][nx]) return false;
   }
   return true;
@@ -692,7 +772,7 @@ function hold() {
   if (held) {
     const tmp = held;
     held = { type:current.type, matrix: SHAPES[current.type].map(r=>[...r]), rotState:0 };
-    current = { ...tmp, x:Math.floor(COLS/2)-Math.floor(tmp.matrix[0].length/2), y:0, rotState:0 };
+    current = { ...tmp, x:Math.floor(COLS/2)-Math.floor(tmp.matrix[0].length/2), y:BUFFER, rotState:0 };
   } else {
     held = { type:current.type, matrix: SHAPES[current.type].map(r=>[...r]), rotState:0 };
     current = shiftNext();
@@ -701,22 +781,25 @@ function hold() {
 }
 
 function lock() {
+  let allAbove = true;
   for (let r=0; r<current.matrix.length; r++) for (let c=0; c<current.matrix[r].length; c++) {
     if (!current.matrix[r][c]) continue;
     const ny = current.y+r;
-    if (ny<0) { endGame(); return; }
+    if (ny >= BUFFER) allAbove = false;
+    if (ny < 0) { endGame(); return; } // truly off-top
     board[ny][current.x+c] = current.type;
   }
   isLocking = false; lockTimer = 0; lockMoves = 0;
   clearLines();
   current = shiftNext();
   canHold = true;
-  if (!valid(current,0,0)) endGame();
+  // Game over: new piece overlaps existing blocks, or entire locked piece was above visible area
+  if (!valid(current,0,0) || allAbove) endGame();
 }
 
 function clearLines() {
   let cleared=0;
-  for (let r=ROWS-1; r>=0; r--) {
+  for (let r=TOTAL_ROWS-1; r>=0; r--) {
     if (board[r].every(c=>c!==null)) {
       board.splice(r,1); board.unshift(Array(COLS).fill(null));
       cleared++; r++;
@@ -771,18 +854,21 @@ function draw() {
   ctx.strokeStyle='rgba(255,255,255,0.06)'; ctx.lineWidth=1;
   for (let r=0;r<ROWS;r++) { ctx.beginPath(); ctx.moveTo(0,r*CELL); ctx.lineTo(canvas.width,r*CELL); ctx.stroke(); }
   for (let c=0;c<COLS;c++) { ctx.beginPath(); ctx.moveTo(c*CELL,0); ctx.lineTo(c*CELL,canvas.height); ctx.stroke(); }
-  // Board
+  // Board — offset by BUFFER so hidden rows don't render
   if (board) {
-    for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) if (board[r][c]) drawCell(board[r][c],c,r);
+    for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) if (board[r+BUFFER][c]) drawCell(board[r+BUFFER][c],c,r);
   }
-  // Ghost + current
+  // Ghost + current — subtract BUFFER from y for canvas coords
   if (gameRunning && current) {
     const gy=ghostY();
     if (gy!==current.y)
       for (let r=0;r<current.matrix.length;r++) for (let c=0;c<current.matrix[r].length;c++)
-        if (current.matrix[r][c]) drawCell(current.type, current.x+c, gy+r, true);
+        if (current.matrix[r][c]) drawCell(current.type, current.x+c, gy+r-BUFFER, true);
     for (let r=0;r<current.matrix.length;r++) for (let c=0;c<current.matrix[r].length;c++)
-      if (current.matrix[r][c]) drawCell(current.type, current.x+c, current.y+r);
+      if (current.matrix[r][c]) {
+        const cy = current.y+r-BUFFER;
+        if (cy >= 0) drawCell(current.type, current.x+c, cy); // only draw if in visible area
+      }
   }
   if (nextPieces) drawNext();
   drawMini(holdCtx, held, holdCvs.width, holdCvs.height);
@@ -840,8 +926,9 @@ function updateUI() {
 
 // ── Settings UI ───────────────────────────────────────────────────────────────
 function applySettingsUI() {
-  setToggle('toggle-vib-lines', settings.vibLines);
-  setToggle('toggle-vib-move',  settings.vibMove);
+  setToggle('toggle-vib-lines',  settings.vibLines);
+  setToggle('toggle-vib-move',   settings.vibMove);
+
 
   const sd = document.getElementById('slider-delay');
   sd.value = settings.repeatDelay;
@@ -854,16 +941,26 @@ function applySettingsUI() {
   const sl = document.getElementById('slider-lock');
   sl.value = settings.lockDelay;
   document.getElementById('val-lock').textContent = settings.lockDelay+'ms';
+
+  const sts = document.getElementById('slider-touch-sens');
+  sts.value = settings.touchSensitivity;
+  document.getElementById('val-touch-sens').textContent = settings.touchSensitivity+'px';
 }
 
 function setToggle(id, val) {
   document.getElementById(id).classList.toggle('on', val);
 }
 
-document.getElementById('toggle-vib-lines').addEventListener('click', () => {
+function addToggleListener(id, fn) {
+  const el = document.getElementById(id);
+  el.addEventListener('click', fn);
+  el.addEventListener('touchend', e => { e.preventDefault(); e.stopPropagation(); fn(); }, {passive: false});
+}
+
+addToggleListener('toggle-vib-lines', () => {
   settings.vibLines = !settings.vibLines; setToggle('toggle-vib-lines', settings.vibLines); saveSettings();
 });
-document.getElementById('toggle-vib-move').addEventListener('click', () => {
+addToggleListener('toggle-vib-move', () => {
   settings.vibMove = !settings.vibMove; setToggle('toggle-vib-move', settings.vibMove); saveSettings();
 });
 
@@ -881,6 +978,12 @@ document.getElementById('slider-speed').addEventListener('input', e => {
 document.getElementById('slider-lock').addEventListener('input', e => {
   settings.lockDelay = parseInt(e.target.value);
   document.getElementById('val-lock').textContent = settings.lockDelay+'ms';
+  saveSettings();
+});
+
+document.getElementById('slider-touch-sens').addEventListener('input', e => {
+  settings.touchSensitivity = parseInt(e.target.value);
+  document.getElementById('val-touch-sens').textContent = settings.touchSensitivity+'px';
   saveSettings();
 });
 
@@ -987,121 +1090,156 @@ document.addEventListener('keyup', e => {
 });
 
 // ── Touch Controls ────────────────────────────────────────────────────────────
-// Shared state
 let touchStartX, touchStartY, touchStartTime;
 let touchLastX, touchLastY;
-let touchTrackedCol;
+let touchAccumX = 0;   // accumulated px for sensitivity-based column moves
 let touchMoved;
 let touchDownLocked;
 
-function getBoardCol(clientX) {
-  const rect = canvas.getBoundingClientRect();
-  return Math.floor((clientX - rect.left) / (rect.width / COLS));
-}
+// Soft drop state
+let softDropActive = false;
+let softDropLastY = 0;
+let softDropInterval = null;
+const SOFT_DROP_CELL_PX = 18;
 
-function isTouchOnCanvas(clientX, clientY) {
-  const rect = canvas.getBoundingClientRect();
-  return clientX >= rect.left && clientX <= rect.right &&
-         clientY >= rect.top  && clientY <= rect.bottom;
+function stopSoftDrop() {
+  if (softDropInterval) { clearInterval(softDropInterval); softDropInterval = null; }
+  softDropActive = false;
 }
-
-// Determine rotate direction based on horizontal position relative to screen center
+function startSoftDrop() {
+  if (softDropActive) return;
+  softDropActive = true;
+  softDropInterval = setInterval(() => {
+    if (!gameRunning || paused) { stopSoftDrop(); return; }
+    moveDown(); score++; updateUI(); dropCounter = 0;
+  }, 50);
+}
 function rotateByScreenSide(clientX) {
-  const screenMid = window.innerWidth / 2;
-  if (clientX < screenMid) tryRotateLeft();
-  else tryRotate();
+  if (clientX < window.innerWidth / 2) tryRotateLeft(); else tryRotate();
+}
+function isInEl(x, y, el) {
+  const r = el.getBoundingClientRect();
+  return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+}
+
+// Declare holdBox and pauseBtnBox here so touch handlers can reference them
+const holdBox     = holdCvs.closest('.panel-box') || holdCvs;
+const pauseBtnBox = document.getElementById('pause-btn-box');
+
+function isUIEl(x, y) {
+  // Hold box, pause button, and any overlay (start screen, pause screen, gameover screen)
+  if (isInEl(x, y, holdBox) || isInEl(x, y, pauseBtnBox)) return true;
+  // Any visible overlay — let native click/touch pass through
+  const overlays = document.querySelectorAll('.overlay:not(.hidden)');
+  for (const o of overlays) { if (isInEl(x, y, o)) return true; }
+  return false;
 }
 
 function onTouchStart(e) {
-  e.preventDefault();
   const t = e.touches[0];
-  touchStartX     = t.clientX;
-  touchStartY     = t.clientY;
-  touchLastX      = t.clientX;
-  touchLastY      = t.clientY;
-  touchStartTime  = Date.now();
-  touchTrackedCol = getBoardCol(t.clientX);
-  touchMoved      = false;
+  if (isUIEl(t.clientX, t.clientY)) return; // let hold/pause handle it
+  e.preventDefault();
+  touchStartX    = t.clientX;
+  touchStartY    = t.clientY;
+  touchLastX     = t.clientX;
+  touchLastY     = t.clientY;
+  softDropLastY  = t.clientY;
+  touchStartTime = Date.now();
+  touchAccumX    = 0;
+  touchMoved     = false;
   touchDownLocked = false;
+  stopSoftDrop();
 }
 
 function onTouchMove(e) {
+  const t = e.touches[0];
+  if (isUIEl(t.clientX, t.clientY)) return;
   e.preventDefault();
   if (!gameRunning || paused || touchDownLocked) return;
 
-  const t = e.touches[0];
-  const dy      = t.clientY - touchStartY;
-  const totalDx = Math.abs(t.clientX - touchStartX);
-  const totalDy = Math.abs(t.clientY - touchStartY);
-  const dt      = Date.now() - touchStartTime;
+  const totalDy    = t.clientY - touchStartY;
+  const totalDyAbs = Math.abs(totalDy);
+  const totalDx    = Math.abs(t.clientX - touchStartX);
+  const dt         = Date.now() - touchStartTime;
+  const sens       = settings.touchSensitivity || 30;
 
-  // Hard drop — fast downward flick
-  if (dy > 60 && totalDy > totalDx * 1.5 && dt < 400) {
-    hardDrop();
-    touchDownLocked = true;
-    return;
+  // Hard drop — very fast flick: >100px down, very vertical, within 180ms
+  if (totalDy > 100 && totalDyAbs > totalDx * 5 && dt < 180 && !softDropActive) {
+    hardDrop(); touchDownLocked = true; stopSoftDrop(); touchAccumX = 0; return;
   }
 
-  // Horizontal tracking — move piece column by column with finger
-  if (totalDx > 8 || touchMoved) {
+  // Soft drop — any sustained downward drag (not a fast flick)
+  if (totalDy > 18 && totalDyAbs > totalDx * 0.8 && !softDropActive && dt >= 80) {
+    startSoftDrop(); touchMoved = true;
+  }
+  if (softDropActive) {
+    const down = t.clientY - softDropLastY;
+    if (down >= SOFT_DROP_CELL_PX) {
+      const ticks = Math.floor(down / SOFT_DROP_CELL_PX);
+      for (let i = 0; i < ticks; i++) {
+        if (!gameRunning || paused) break;
+        moveDown(); score++; updateUI(); dropCounter = 0;
+      }
+      softDropLastY += ticks * SOFT_DROP_CELL_PX;
+    }
+    touchAccumX = 0; // no horizontal movement during soft drop
+    touchLastX = t.clientX; touchLastY = t.clientY; return;
+  }
+
+  // Horizontal tracking — accumulate pixels, fire move per `sens` px
+  const dxFromLast = t.clientX - touchLastX;
+  if (Math.abs(t.clientX - touchStartX) > 8 || touchMoved) {
     touchMoved = true;
-    const newCol = getBoardCol(t.clientX);
-    const diff = newCol - touchTrackedCol;
-    if (diff !== 0) {
-      const fn = diff > 0 ? moveRight : moveLeft;
-      for (let i = 0; i < Math.abs(diff); i++) fn();
-      touchTrackedCol = newCol;
+    touchAccumX += dxFromLast;
+    if (Math.abs(touchAccumX) >= sens) {
+      const steps = Math.floor(Math.abs(touchAccumX) / sens);
+      const fn = touchAccumX > 0 ? moveRight : moveLeft;
+      for (let i = 0; i < steps; i++) fn();
+      touchAccumX -= steps * sens * Math.sign(touchAccumX);
     }
   }
-
-  touchLastX = t.clientX;
-  touchLastY = t.clientY;
+  touchLastX = t.clientX; touchLastY = t.clientY;
 }
 
 function onTouchEnd(e) {
+  const t = e.changedTouches[0];
+  if (isUIEl(t.clientX, t.clientY)) return;
   e.preventDefault();
-  if (!gameRunning || paused) return;
-  if (touchDownLocked) return;
-
-  const t  = e.changedTouches[0];
-  const dx = t.clientX - touchStartX;
-  const dy = t.clientY - touchStartY;
+  stopSoftDrop();
+  if (!gameRunning || paused || touchDownLocked) return;
+  const dx = t.clientX - touchStartX, dy = t.clientY - touchStartY;
   const dt = Date.now() - touchStartTime;
   const ax = Math.abs(dx), ay = Math.abs(dy);
-
-  // Tap — no real movement
-  if (!touchMoved && ax < 18 && ay < 18 && dt < 300) {
-    rotateByScreenSide(t.clientX);
-    return;
-  }
-
-  // Swipe up = hold
+  if (!touchMoved && ax < 18 && ay < 18 && dt < 300) { rotateByScreenSide(t.clientX); return; }
   if (ay > ax && dy < -40) { hold(); return; }
-
-  // Slow swipe down = soft drop
-  if (ay > ax && dy > 40 && !touchMoved) {
-    moveDown(); dropCounter = 0;
-  }
 }
 
-// Attach to canvas
-canvas.addEventListener('touchstart', onTouchStart, {passive: false});
-canvas.addEventListener('touchmove',  onTouchMove,  {passive: false});
-canvas.addEventListener('touchend',   onTouchEnd,   {passive: false});
+// ── Attach to document so the ENTIRE screen is the touch surface ──────────────
+document.addEventListener('touchstart', onTouchStart, {passive: false});
+document.addEventListener('touchmove',  onTouchMove,  {passive: false});
+document.addEventListener('touchend',   onTouchEnd,   {passive: false});
 
-// Attach to full-screen touch zone (covers empty space below game)
-const touchZone = document.getElementById('touch-zone');
-touchZone.addEventListener('touchstart', onTouchStart, {passive: false});
-touchZone.addEventListener('touchmove',  onTouchMove,  {passive: false});
-touchZone.addEventListener('touchend',   onTouchEnd,   {passive: false});
-
-// Tap the hold panel = hold piece
-holdCvs.addEventListener('touchend', e => {
-  e.preventDefault();
-  e.stopPropagation();
+// Hold box tap — stopPropagation so document handler won't also fire
+holdBox.addEventListener('touchstart', e => { e.stopPropagation(); }, {passive: false});
+holdBox.addEventListener('touchend', e => {
+  e.preventDefault(); e.stopPropagation();
   if (gameRunning && !paused) hold();
 }, {passive: false});
 holdCvs.style.cursor = 'pointer';
+
+// Pause box tap
+pauseBtnBox.addEventListener('touchstart', e => { e.stopPropagation(); }, {passive: false});
+pauseBtnBox.addEventListener('touchend', e => {
+  e.preventDefault(); e.stopPropagation();
+  togglePause();
+}, {passive: false});
+
+// Pause/gameover/start overlays — stop all touches from reaching document game handler
+document.querySelectorAll('.overlay').forEach(el => {
+  el.addEventListener('touchstart', e => e.stopPropagation(), {passive: true});
+  el.addEventListener('touchmove',  e => e.stopPropagation(), {passive: true});
+  el.addEventListener('touchend',   e => e.stopPropagation(), {passive: true});
+});
 
 // ── Pause ─────────────────────────────────────────────────────────────────────
 function togglePause() {
@@ -1112,12 +1250,28 @@ function togglePause() {
 }
 document.getElementById('pause-btn-box').addEventListener('click', togglePause);
 document.getElementById('resume-btn').addEventListener('click', togglePause);
+document.getElementById('quit-btn').addEventListener('click', () => {
+  document.getElementById('pause-screen').classList.add('hidden');
+  document.getElementById('quit-confirm-screen').classList.remove('hidden');
+});
+document.getElementById('quit-yes-btn').addEventListener('click', () => {
+  gameRunning = false;
+  paused = false;
+  cancelAnimationFrame(animId);
+  document.getElementById('quit-confirm-screen').classList.add('hidden');
+  document.getElementById('start-screen').classList.remove('hidden');
+});
+document.getElementById('quit-no-btn').addEventListener('click', () => {
+  document.getElementById('quit-confirm-screen').classList.add('hidden');
+  document.getElementById('pause-screen').classList.remove('hidden');
+});
 document.getElementById('start-btn').addEventListener('click', () => {
   const raw = parseInt(document.getElementById('start-level-input').value) || 1;
   const startLevel = Math.max(1, Math.min(20, raw));
   document.getElementById('start-screen').classList.add('hidden');
   initGame(startLevel);
 });
+
 document.getElementById('restart-btn').addEventListener('click', () => {
   document.getElementById('gameover-screen').classList.add('hidden');
   document.getElementById('start-screen').classList.remove('hidden');
@@ -1126,6 +1280,7 @@ document.getElementById('restart-btn').addEventListener('click', () => {
 // ── Boot ──────────────────────────────────────────────────────────────────────
 loadSettings();
 highScore = loadHS();
+updateUI(); // show saved high score immediately on start screen
 window.addEventListener('resize', resize);
 resize(); // resize draws the empty board safely now
 </script>
