@@ -404,13 +404,13 @@
         <div class="settings-title">── VIBRATION ──</div>
 
         <div class="setting-row" style="margin-bottom:6px">
-          <div class="setting-label">LINE CLEAR<br>BUZZ</div>
-          <div class="toggle" id="toggle-vib-lines"></div>
+          <div class="setting-label">VIBRATION<br><span>all haptic feedback</span></div>
+          <div class="toggle" id="toggle-vibration"></div>
         </div>
 
         <div class="setting-row">
-          <div class="setting-label">MOVEMENT<br>BUZZ</div>
-          <div class="toggle" id="toggle-vib-move"></div>
+          <div class="setting-label">LINE CLEAR<br><span>extra buzz on clear</span></div>
+          <div class="toggle" id="toggle-vib-lines"></div>
         </div>
       </div>
 
@@ -619,7 +619,7 @@ function tryRotateSRS(dir) { // dir: 1=CW, -1=CCW
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 const SETTINGS_KEY = 'tetris_settings';
-let settings = { vibLines: true, vibMove: false, repeatDelay: 200, repeatSpeed: 80, lockDelay: 500, touchSensitivity: 30 };
+let settings = { vibration: true, vibLines: true, repeatDelay: 200, repeatSpeed: 80, lockDelay: 500, touchSensitivity: 30 };
 // touchSensitivity = pixels of horizontal drag required to move one column (higher = less sensitive)
 
 function loadSettings() {
@@ -639,11 +639,19 @@ function loadHS() { try { return parseInt(localStorage.getItem('tetris_hs')||'0'
 function saveHS(s) { try { localStorage.setItem('tetris_hs', s); } catch(e) {} }
 
 // ── Vibration ─────────────────────────────────────────────────────────────────
-function vib(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch(e) {} }
-function vibMove()  { if (settings.vibMove)  vib(12); }
-function vibLine()  { if (settings.vibLines) vib(30); }
-function vibDrop()  { if (settings.vibMove)  vib(20); }
-function vibBest()  { vib([80,40,80,40,150]); }
+// Must be called within or immediately after a user gesture (touch/click) for
+// navigator.vibrate to work on mobile browsers.
+function vib(pattern) {
+  if (!settings.vibration) return;
+  try {
+    if (navigator.vibrate) navigator.vibrate(pattern);
+  } catch(e) {}
+}
+function vibMove()   { vib(8); }          // 1 short tick per column
+function vibRotate() { vib(12); }         // slightly longer — distinct from move
+function vibDrop()   { vib([20,10,20]); } // double thud for hard drop
+function vibLine()   { if (settings.vibLines) vib(40); } // line clear buzz (separate toggle)
+function vibBest()   { vib([80,40,80,40,150]); }
 
 // ── Game state ────────────────────────────────────────────────────────────────
 let board, current, nextPieces, held, canHold;
@@ -740,8 +748,8 @@ function valid(piece, dx=0, dy=0, mat=null) {
 function tryRotate()     { tryRotateSRS( 1); }
 function tryRotateLeft() { tryRotateSRS(-1); }
 
-function moveLeft()  { if (valid(current,-1,0)) { current.x--; vibMove(); resetLock(); } }
-function moveRight() { if (valid(current, 1,0)) { current.x++; vibMove(); resetLock(); } }
+function moveLeft()  { if (valid(current,-1,0)) { current.x--; resetLock(); } }
+function moveRight() { if (valid(current, 1,0)) { current.x++; resetLock(); } }
 
 function resetLock() {
   // Reset lock timer when player moves/rotates while grounded, up to max resets
@@ -762,7 +770,6 @@ function moveDown() {
 function hardDrop() {
   let d=0; while (valid(current,0,d+1)) d++;
   current.y+=d; score+=d*2; updateUI();
-  vibDrop();
   lock(); dropCounter=0;
 }
 
@@ -925,9 +932,8 @@ function updateUI() {
 
 // ── Settings UI ───────────────────────────────────────────────────────────────
 function applySettingsUI() {
-  setToggle('toggle-vib-lines',  settings.vibLines);
-  setToggle('toggle-vib-move',   settings.vibMove);
-
+  setToggle('toggle-vibration', settings.vibration);
+  setToggle('toggle-vib-lines', settings.vibLines);
 
   const sd = document.getElementById('slider-delay');
   sd.value = settings.repeatDelay;
@@ -947,20 +953,26 @@ function applySettingsUI() {
 }
 
 function setToggle(id, val) {
-  document.getElementById(id).classList.toggle('on', val);
+  const el = document.getElementById(id);
+  if (el) el.classList.toggle('on', val);
 }
 
 function addToggleListener(id, fn) {
   const el = document.getElementById(id);
+  if (!el) return;
   el.addEventListener('click', fn);
   el.addEventListener('touchend', e => { e.preventDefault(); e.stopPropagation(); fn(); }, {passive: false});
 }
 
+addToggleListener('toggle-vibration', () => {
+  settings.vibration = !settings.vibration;
+  setToggle('toggle-vibration', settings.vibration);
+  // Fire a test buzz immediately so user feels it turn on
+  if (settings.vibration) try { navigator.vibrate && navigator.vibrate(30); } catch(e) {}
+  saveSettings();
+});
 addToggleListener('toggle-vib-lines', () => {
   settings.vibLines = !settings.vibLines; setToggle('toggle-vib-lines', settings.vibLines); saveSettings();
-});
-addToggleListener('toggle-vib-move', () => {
-  settings.vibMove = !settings.vibMove; setToggle('toggle-vib-move', settings.vibMove); saveSettings();
 });
 
 document.getElementById('slider-delay').addEventListener('input', e => {
@@ -1044,11 +1056,11 @@ document.addEventListener('keydown', e => {
   switch (e.key) {
     case 'ArrowLeft':
       e.preventDefault();
-      dasStart('ArrowLeft', () => { moveLeft(); vibMove(); });
+      dasStart('ArrowLeft', () => { moveLeft(); });
       break;
     case 'ArrowRight':
       e.preventDefault();
-      dasStart('ArrowRight', () => { moveRight(); vibMove(); });
+      dasStart('ArrowRight', () => { moveRight(); });
       break;
     case 'ArrowDown':
       e.preventDefault();
@@ -1056,15 +1068,15 @@ document.addEventListener('keydown', e => {
       break;
     case 'ArrowUp': case 'x':
       e.preventDefault();
-      if (!dasTimers[e.key]) { dasTimers[e.key] = true; tryRotate(); }
+      if (!dasTimers[e.key]) { dasTimers[e.key] = true; tryRotate(); vibRotate(); }
       break;
     case 'z': case 'Z':
       e.preventDefault();
-      if (!dasTimers['z']) { dasTimers['z'] = true; tryRotateLeft(); }
+      if (!dasTimers['z']) { dasTimers['z'] = true; tryRotateLeft(); vibRotate(); }
       break;
     case ' ':
       e.preventDefault();
-      if (!dasTimers[' ']) { dasTimers[' '] = true; hardDrop(); }
+      if (!dasTimers[' ']) { dasTimers[' '] = true; hardDrop(); vibDrop(); }
       break;
     case 'c': case 'Shift':
       e.preventDefault();
@@ -1164,7 +1176,10 @@ function onTouchMove(e) {
 
   // Hard drop — very fast flick: >100px down, very vertical, within 180ms
   if (totalDy > 100 && totalDyAbs > totalDx * 5 && dt < 180 && !softDropActive) {
-    hardDrop(); touchDownLocked = true; stopSoftDrop(); touchAccumX = 0; return;
+    hardDrop();
+    // Vibrate directly in touch handler — guaranteed gesture context
+    if (settings.vibration) try { navigator.vibrate && navigator.vibrate([20,10,20]); } catch(e) {}
+    touchDownLocked = true; stopSoftDrop(); touchAccumX = 0; return;
   }
 
   // Soft drop — any sustained downward drag (not a fast flick)
@@ -1193,7 +1208,16 @@ function onTouchMove(e) {
     if (Math.abs(touchAccumX) >= sens) {
       const steps = Math.floor(Math.abs(touchAccumX) / sens);
       const fn = touchAccumX > 0 ? moveRight : moveLeft;
-      for (let i = 0; i < steps; i++) fn();
+      let moved = 0;
+      for (let i = 0; i < steps; i++) {
+        const before = current.x;
+        fn();
+        if (current.x !== before) moved++;
+      }
+      // Vibrate directly here — we're inside a touch event (user gesture)
+      if (moved > 0 && settings.vibration) {
+        try { navigator.vibrate && navigator.vibrate(Array(moved).fill(8).flatMap((v,i) => i < moved-1 ? [v, 20] : [v])); } catch(e) {}
+      }
       touchAccumX -= steps * sens * Math.sign(touchAccumX);
     }
   }
@@ -1209,7 +1233,11 @@ function onTouchEnd(e) {
   const dx = t.clientX - touchStartX, dy = t.clientY - touchStartY;
   const dt = Date.now() - touchStartTime;
   const ax = Math.abs(dx), ay = Math.abs(dy);
-  if (!touchMoved && ax < 18 && ay < 18 && dt < 300) { rotateByScreenSide(t.clientX); return; }
+  if (!touchMoved && ax < 18 && ay < 18 && dt < 300) {
+    rotateByScreenSide(t.clientX);
+    if (settings.vibration) try { navigator.vibrate && navigator.vibrate(12); } catch(e) {}
+    return;
+  }
   if (ay > ax && dy < -40) { hold(); return; }
 }
 
