@@ -119,7 +119,7 @@ function tryRotateSRS(dir) { // dir: 1=CW, -1=CCW
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 const SETTINGS_KEY = 'tetris_settings';
-let settings = { vibration: true, repeatDelay: 200, repeatSpeed: 80, lockDelay: 500, touchSensitivity: 30, musicOn: true, musicVolume: 100, edcMode: false };
+let settings = { vibration: true, repeatDelay: 200, repeatSpeed: 80, lockDelay: 500, touchSensitivity: 30, musicOn: true, musicVolume: 100, edcMode: false, onscreenButtons: false };
 // touchSensitivity = pixels of horizontal drag required to move one column (higher = less sensitive)
 
 function loadSettings() {
@@ -779,6 +779,10 @@ function applySettingsUI() {
 
   setToggle('toggle-viz', settings.edcMode);
   setToggle('toggle-viz-start', settings.edcMode);
+
+  setToggle('toggle-buttons', settings.onscreenButtons);
+  setToggle('toggle-buttons-start', settings.onscreenButtons);
+  updateBtnBar();
 }
 
 function setToggle(id, val) {
@@ -1053,6 +1057,23 @@ function updateViz(ts) {
 
   vizCtx.restore();
 }
+
+function updateBtnBar() {
+  const bar = document.getElementById('btn-bar');
+  if (settings.onscreenButtons) bar.classList.add('visible');
+  else bar.classList.remove('visible');
+  resize(); // recalculate board size to fit available space
+}
+
+function toggleButtonsSetting() {
+  settings.onscreenButtons = !settings.onscreenButtons;
+  setToggle('toggle-buttons', settings.onscreenButtons);
+  setToggle('toggle-buttons-start', settings.onscreenButtons);
+  updateBtnBar();
+  saveSettings();
+}
+addToggleListener('toggle-buttons',       toggleButtonsSetting);
+addToggleListener('toggle-buttons-start', toggleButtonsSetting);
 
 function toggleVizSetting() {
   settings.edcMode = !settings.edcMode;
@@ -1495,6 +1516,42 @@ document.addEventListener('click',      onFirstGesture, { once: true });
 document.addEventListener('touchstart', onFirstGesture, { once: true });
 window.addEventListener('resize', resize);
 resize();
+
+// ── On-screen game control buttons ────────────────────────────────────────────
+function setupGameCtrlBtn(id, onDown, onUp) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  // Block touches from leaking to the game board touch handlers
+  btn.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
+  btn.addEventListener('touchmove',  e => e.stopPropagation(), { passive: true });
+  btn.addEventListener('touchend',   e => e.stopPropagation(), { passive: true });
+  btn.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    btn.setPointerCapture(e.pointerId);
+    if (gameRunning && !paused) { _ensureVibAudio(); onDown(); }
+  });
+  if (onUp) {
+    btn.addEventListener('pointerup',     () => onUp());
+    btn.addEventListener('pointercancel', () => onUp());
+  }
+}
+
+setupGameCtrlBtn('gcbtn-left',
+  () => dasStart('btn-left',  () => { moveLeft();  vibMove(); }),
+  () => dasStop('btn-left')
+);
+setupGameCtrlBtn('gcbtn-right',
+  () => dasStart('btn-right', () => { moveRight(); vibMove(); }),
+  () => dasStop('btn-right')
+);
+setupGameCtrlBtn('gcbtn-down',
+  () => startSoftDrop(),
+  () => stopSoftDrop()
+);
+setupGameCtrlBtn('gcbtn-rotl',  () => { tryRotateLeft(); vibRotate(); });
+setupGameCtrlBtn('gcbtn-rotr',  () => { tryRotate();     vibRotate(); });
+setupGameCtrlBtn('gcbtn-hold',  () => { hold(); });
+setupGameCtrlBtn('gcbtn-drop',  () => { hardDrop(); vibDrop(); });
 
 // Auto-pause and save snapshot when app goes to background
 document.addEventListener('visibilitychange', () => {

@@ -355,6 +355,56 @@
     pointer-events: none; /* let it be transparent by default */
   }
 
+  /* On-screen button bar */
+  #btn-bar {
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    padding: 4px 8px 8px;
+    position: relative;
+    z-index: 10;
+    flex-shrink: 0;
+  }
+  #btn-bar.visible { display: flex; }
+  /* Never show on desktop (mouse/trackpad) */
+  @media (pointer: fine) { #btn-bar { display: none !important; } }
+
+  .btn-bar-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+  }
+  .btn-bar-grp { display: flex; gap: 6px; }
+
+  .gcbtn {
+    background: rgba(8,14,32,0.75);
+    border: 2px solid rgba(0,245,255,0.35);
+    color: var(--glow-cyan);
+    font-family: inherit;
+    font-size: clamp(16px, 4.5vw, 22px);
+    width: clamp(48px, 12vw, 62px);
+    height: clamp(48px, 12vw, 62px);
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    touch-action: none;
+    box-shadow: 0 0 8px rgba(0,245,255,0.12);
+    transition: background 0.08s, border-color 0.08s;
+    flex-shrink: 0;
+  }
+  .gcbtn:active {
+    background: rgba(0,245,255,0.18);
+    border-color: var(--glow-cyan);
+    box-shadow: 0 0 14px rgba(0,245,255,0.35);
+  }
+  .gcbtn-wide {
+    flex: 1;
+    width: auto;
+    font-size: clamp(7px, 2vw, 11px);
+    letter-spacing: 0.12em;
+  }
+
   .hidden { display: none !important; }
   /* ── Desktop: scale side panels with available space ── */
   @media (min-width: 600px) and (pointer: fine) {

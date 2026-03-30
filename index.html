@@ -59,9 +59,14 @@
         <div class="toggle" id="toggle-music-start"></div>
       </div>
 
-      <div class="setting-row" style="margin-bottom:10px;width:100%;max-width:260px">
+      <div class="setting-row" style="margin-bottom:6px;width:100%;max-width:260px">
         <div class="setting-label">RAVE MODE</div>
         <div class="toggle" id="toggle-viz-start"></div>
+      </div>
+
+      <div class="setting-row" style="margin-bottom:10px;width:100%;max-width:260px">
+        <div class="setting-label">BUTTONS</div>
+        <div class="toggle" id="toggle-buttons-start"></div>
       </div>
 
       <div class="level-select">
@@ -119,6 +124,11 @@
             <input type="range" id="slider-lock" min="100" max="1000" step="50">
             <div class="slider-val" id="val-lock">500ms</div>
           </div>
+        </div>
+
+        <div class="setting-row" style="margin-top:6px">
+          <div class="setting-label">BUTTONS<br><span style="font-size:4px;color:var(--dim)">on-screen controls</span></div>
+          <div class="toggle" id="toggle-buttons"></div>
         </div>
 
         <button class="btn" id="reset-controls-btn" style="font-size:clamp(6px,1.3vw,9px);margin-top:4px">↺ RESET DEFAULTS</button>
@@ -205,6 +215,25 @@
     <div class="panel-box" style="cursor:pointer" id="pause-btn-box">
       <div class="panel-label">⏸ PAUSE</div>
     </div>
+  </div>
+</div>
+
+<!-- On-screen button bar — shown when BUTTONS setting is enabled -->
+<div id="btn-bar">
+  <div class="btn-bar-row">
+    <div class="btn-bar-grp">
+      <button class="gcbtn" id="gcbtn-left">◀</button>
+      <button class="gcbtn" id="gcbtn-down">▼</button>
+      <button class="gcbtn" id="gcbtn-right">▶</button>
+    </div>
+    <div class="btn-bar-grp">
+      <button class="gcbtn" id="gcbtn-rotl">↺</button>
+      <button class="gcbtn" id="gcbtn-rotr">↻</button>
+    </div>
+  </div>
+  <div class="btn-bar-row">
+    <button class="gcbtn gcbtn-wide" id="gcbtn-hold">HOLD</button>
+    <button class="gcbtn gcbtn-wide" id="gcbtn-drop">DROP</button>
   </div>
 </div>
 
