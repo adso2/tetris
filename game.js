@@ -20,7 +20,9 @@ function resize() {
   const isDesktop = vw >= 600 && window.matchMedia('(pointer:fine)').matches;
   const panelW = isDesktop ? Math.min(140, Math.max(80, Math.floor(vw * 0.10))) : 60;
   const sideW  = panelW + 8;
-  const availH = vh - hdrH - pad;
+  const bar = document.getElementById('btn-bar');
+  const btnBarH = (bar && bar.classList.contains('visible')) ? (bar.offsetHeight || 152) : 0;
+  const availH = vh - hdrH - pad - btnBarH;
   const availW = vw - sideW * 2 - pad;
   CELL = Math.max(14, Math.min(Math.floor(availH / ROWS), Math.floor(availW / COLS)));
   canvas.width  = CELL * COLS;
@@ -291,7 +293,7 @@ function _ensureVibAudio() {
 // iOS haptic: plays a very short, nearly-inaudible sine burst.
 // A sharp audio impulse through the WebAudio API is the only available
 // trigger for the Taptic Engine in mobile Safari.
-function _iosHaptic(count, intensity) {
+function _playIosHapticBurst(count, intensity) {
   if (!_vibAudioCtx || _vibAudioCtx.state !== 'running') return;
   try {
     for (let i = 0; i < count; i++) {
@@ -299,17 +301,26 @@ function _iosHaptic(count, intensity) {
       const osc = _vibAudioCtx.createOscillator();
       const g   = _vibAudioCtx.createGain();
       osc.type = 'sine';
-      osc.frequency.value = 180;
+      osc.frequency.value = 200;
       // Sharp attack, fast decay — mimics a click impulse
       g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(intensity * 0.08, t + 0.004);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.035);
+      g.gain.linearRampToValueAtTime(intensity * 0.12, t + 0.003);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.04);
       osc.connect(g);
       g.connect(_vibAudioCtx.destination);
       osc.start(t);
-      osc.stop(t + 0.04);
+      osc.stop(t + 0.045);
     }
   } catch(e) {}
+}
+
+function _iosHaptic(count, intensity) {
+  if (!_vibAudioCtx) return;
+  if (_vibAudioCtx.state === 'suspended') {
+    _vibAudioCtx.resume().then(() => _playIosHapticBurst(count, intensity)).catch(() => {});
+  } else {
+    _playIosHapticBurst(count, intensity);
+  }
 }
 
 function vib(pattern, count, intensity) {
@@ -375,6 +386,7 @@ function initGame(startLevel = 1) {
   animId = requestAnimationFrame(loop);
   Music.restart();
   if (settings.musicOn) Music.play();
+  updateBtnBar();
 }
 
 function refillBag() {
@@ -623,6 +635,7 @@ function clearLines() {
 
 function endGame() {
   gameRunning = false;
+  updateBtnBar();
   if (settings.musicOn) Music.play();
   else Music.pause();
   clearSnapshot(); // game ended naturally — no resume needed
@@ -1060,7 +1073,8 @@ function updateViz(ts) {
 
 function updateBtnBar() {
   const bar = document.getElementById('btn-bar');
-  if (settings.onscreenButtons) bar.classList.add('visible');
+  const show = settings.onscreenButtons && !!gameRunning && !paused;
+  if (show) bar.classList.add('visible');
   else bar.classList.remove('visible');
   resize(); // recalculate board size to fit available space
 }
@@ -1417,6 +1431,7 @@ function togglePause() {
   document.getElementById('pause-screen').classList.toggle('hidden', !paused);
   if (settings.musicOn) Music.play();
   if (!paused) lastTime = performance.now();
+  updateBtnBar();
 }
 document.getElementById('pause-btn-box').addEventListener('click', togglePause);
 document.getElementById('resume-btn').addEventListener('click', togglePause);
@@ -1438,6 +1453,7 @@ document.getElementById('quit-yes-btn').addEventListener('click', () => {
   if (settings.musicOn) Music.play();
   document.getElementById('quit-confirm-screen').classList.add('hidden');
   document.getElementById('start-screen').classList.remove('hidden');
+  updateBtnBar();
 });
 document.getElementById('quit-no-btn').addEventListener('click', () => {
   document.getElementById('quit-confirm-screen').classList.add('hidden');
@@ -1514,6 +1530,10 @@ function onFirstGesture() {
 }
 document.addEventListener('click',      onFirstGesture, { once: true });
 document.addEventListener('touchstart', onFirstGesture, { once: true });
+
+// Unlock WebAudio (needed for iOS haptics) on every touch, including taps on overlays.
+// Must use capture phase so it fires BEFORE overlay stopPropagation() blocks bubbling.
+document.addEventListener('touchstart', _ensureVibAudio, { passive: true, capture: true });
 window.addEventListener('resize', resize);
 resize();
 

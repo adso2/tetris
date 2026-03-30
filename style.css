@@ -127,7 +127,7 @@
   .game-area {
     display: flex; gap: 6px;
     align-items: flex-start; justify-content: center;
-    width: 100%; flex: 1; position: relative; z-index: 10;
+    width: 100%; flex-shrink: 0; position: relative; z-index: 10;
   }
 
   .side-panel {
@@ -361,10 +361,12 @@
     flex-direction: column;
     gap: 6px;
     width: 100%;
-    padding: 4px 8px 8px;
+    padding: 6px 8px 10px;
     position: relative;
     z-index: 10;
     flex-shrink: 0;
+    background: rgba(8,14,32,0.4);
+    border-top: 1px solid rgba(0,245,255,0.12);
   }
   #btn-bar.visible { display: flex; }
   /* Never show on desktop (mouse/trackpad) */
@@ -382,10 +384,10 @@
     border: 2px solid rgba(0,245,255,0.35);
     color: var(--glow-cyan);
     font-family: inherit;
-    font-size: clamp(16px, 4.5vw, 22px);
-    width: clamp(48px, 12vw, 62px);
-    height: clamp(48px, 12vw, 62px);
-    border-radius: 6px;
+    font-size: clamp(20px, 5.5vw, 28px);
+    width: clamp(58px, 14vw, 76px);
+    height: clamp(58px, 14vw, 76px);
+    border-radius: 8px;
     cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     touch-action: none;
@@ -401,7 +403,7 @@
   .gcbtn-wide {
     flex: 1;
     width: auto;
-    font-size: clamp(7px, 2vw, 11px);
+    font-size: clamp(8px, 2.2vw, 13px);
     letter-spacing: 0.12em;
   }
 
