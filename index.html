@@ -6,6 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-fullscreen">
 <meta name="theme-color" content="#0a0a0f">
+<link rel="manifest" href="manifest.json">
 <title>TETRIS</title>
 <!-- Preconnect so font loads fast when online; gracefully degrades offline -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -263,5 +264,10 @@
 </div>
 
 <script src="game.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js');
+  }
+</script>
 </body>
 </html>
