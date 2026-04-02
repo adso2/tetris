@@ -133,6 +133,7 @@
   .side-panel {
     display: flex; flex-direction: column; gap: 6px;
     min-width: 60px; width: 60px;
+    padding-top: 40px; /* clear iOS notification banners */
   }
 
   .panel-box {
@@ -413,6 +414,7 @@
     .side-panel {
       width: clamp(80px, 10vw, 140px);
       min-width: 80px;
+      padding-top: 0;
     }
     #hold-canvas {
       width: 100%; height: auto;

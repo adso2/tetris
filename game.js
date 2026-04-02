@@ -424,12 +424,13 @@ let lockTimer = 0, isLocking = false, lockMoves = 0;
 const LOCK_MAX_MOVES = 15;
 function lockDelay() { return settings.lockDelay; }
 
-// Official Tetris Guideline gravity curve: seconds per row = (0.8 - (level-1)*0.007)^(level-1)
-// Converted to ms per row. Pieces drop one row at a time so this is the drop interval.
-// Level 1 = ~1000ms, Level 5 = ~617ms, Level 10 = ~300ms, Level 15 = ~105ms, Level 20 = ~24ms
+// NES Tetris gravity table (frames at 60fps → ms per row).
+// Level 1 = 800ms, Level 9 = 133ms, Level 15 = 67ms, Level 20 = 33ms, Level 21+ = 17ms.
+// This gives a smooth, recognisable progression all the way to level 20.
 function dropInterval() {
-  const secsPerRow = Math.pow(0.8 - (level - 1) * 0.007, level - 1);
-  return Math.max(20, secsPerRow * 1000);
+  const nesFrames = [48,43,38,33,28,23,18,13,8,6,5,5,5,4,4,4,3,3,3,2,1];
+  const idx = Math.min(level - 1, nesFrames.length - 1);
+  return nesFrames[idx] * (1000 / 60);
 }
 
 function loop(time=0) {
@@ -763,6 +764,8 @@ function updateUI() {
   document.getElementById('level').textContent = level ?? 1;
   document.getElementById('lines').textContent = lines ?? 0;
   document.getElementById('highscore').textContent = highScore ?? 0;
+  const linesEl = document.getElementById('lines-to-level');
+  if (linesEl) linesEl.textContent = Math.max(0, (level ?? 1) * 10 - (lines ?? 0));
 }
 
 // ── Settings UI ───────────────────────────────────────────────────────────────
