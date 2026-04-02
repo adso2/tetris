@@ -424,13 +424,16 @@ let lockTimer = 0, isLocking = false, lockMoves = 0;
 const LOCK_MAX_MOVES = 15;
 function lockDelay() { return settings.lockDelay; }
 
-// NES Tetris gravity table (frames at 60fps → ms per row).
-// Level 1 = 800ms, Level 9 = 133ms, Level 15 = 67ms, Level 20 = 33ms, Level 21+ = 17ms.
-// This gives a smooth, recognisable progression all the way to level 20.
+// NES Tetris speed table for levels 1-21, then exponential decay beyond that.
+// Levels 1-21 follow the classic NES curve (800ms → 17ms).
+// Levels 22+ decay at 7% per level toward a 2ms minimum so speed keeps scaling
+// to ~level 50 where a piece traverses the board in ~40ms (barely visible).
 function dropInterval() {
   const nesFrames = [48,43,38,33,28,23,18,13,8,6,5,5,5,4,4,4,3,3,3,2,1];
-  const idx = Math.min(level - 1, nesFrames.length - 1);
-  return nesFrames[idx] * (1000 / 60);
+  const idx = level - 1;
+  if (idx < nesFrames.length) return nesFrames[idx] * (1000 / 60);
+  const base = nesFrames[nesFrames.length - 1] * (1000 / 60); // ~17ms at level 21
+  return Math.max(2, base * Math.pow(0.93, idx - (nesFrames.length - 1)));
 }
 
 function loop(time=0) {
@@ -455,7 +458,12 @@ function loop(time=0) {
       }
     } else {
       isLocking = false; lockTimer = 0;
-      if (dropCounter >= dropInterval()) { moveDown(); dropCounter = 0; }
+      const di = dropInterval();
+      while (dropCounter >= di) {
+        moveDown();
+        dropCounter -= di;
+        if (!valid(current, 0, 1)) break; // piece just landed — stop looping
+      }
     }
 
     draw();
