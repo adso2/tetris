@@ -1524,9 +1524,10 @@ updateResumeBtn(); // show resume button if a saved game exists
 
 // Browsers block autoplay until a user gesture. Unlock audio on first interaction
 // so that later Music.play() calls work even from non-gesture contexts (e.g. keyboard).
+// If music is off, do nothing — calling play() even briefly takes over the iOS audio
+// session and interrupts any music the user is already listening to.
 function onFirstGesture() {
   if (settings.musicOn) Music.play();
-  else Music.unlock(); // silently unlock audio elements for future use
 }
 document.addEventListener('click',      onFirstGesture, { once: true });
 document.addEventListener('touchstart', onFirstGesture, { once: true });
