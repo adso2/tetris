@@ -506,6 +506,7 @@ function resetLock() {
   if (isLocking && lockMoves < LOCK_MAX_MOVES) {
     lockTimer = 0;
     lockMoves++;
+    dropCounter = 0; // prevent rush-drop catch-up if piece slides to an open column
   }
 }
 
@@ -546,6 +547,7 @@ function afterClear() {
   canHold = true;
   current = next;
   current.y = getSpawnY();
+  dropCounter = 0; // each new piece starts with a fresh drop counter
   if (!valid(current, 0, 0)) {
     isLocking = true;
     lockTimer = 0;
