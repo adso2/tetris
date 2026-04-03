@@ -1,4 +1,4 @@
-const CACHE = 'tetris-v4';
+const CACHE = 'tetris-v5';
 const CORE_ASSETS = [
   './',
   './index.html',

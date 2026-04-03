@@ -1595,7 +1595,10 @@ setupGameCtrlBtn('gcbtn-drop',  () => { hardDrop(); vibDrop(); });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     if (gameRunning && !paused) togglePause();
+    Music.pause(); // always stop music when screen off / app backgrounded
     saveSnapshot();
+  } else {
+    if (settings.musicOn) Music.play(); // restore when returning to app
   }
 });
 // Also save on page close/navigation
