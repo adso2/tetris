@@ -459,10 +459,16 @@ function loop(time=0) {
     } else {
       isLocking = false; lockTimer = 0;
       const di = dropInterval();
-      while (dropCounter >= di) {
-        moveDown();
-        dropCounter -= di;
-        if (!valid(current, 0, 1)) break; // piece just landed — stop looping
+      if (di >= 1000 / 60) {
+        // Normal speed: at most one drop per frame trigger
+        if (dropCounter >= di) { moveDown(); dropCounter -= di; }
+      } else {
+        // Sub-frame speed (level 21+): drop multiple rows per frame
+        while (dropCounter >= di) {
+          moveDown();
+          dropCounter -= di;
+          if (!valid(current, 0, 1)) break;
+        }
       }
     }
 
