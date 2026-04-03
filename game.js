@@ -422,7 +422,13 @@ function shiftNext() {
 let lastTime = 0, dropCounter = 0;
 let lockTimer = 0, isLocking = false, lockMoves = 0;
 const LOCK_MAX_MOVES = 15;
-function lockDelay() { return settings.lockDelay; }
+function lockDelay() {
+  // Cap lock delay to ~10× the current drop interval so it scales with speed.
+  // At low levels this is well above the user setting so the configured value wins.
+  // At high levels it shrinks with the drop speed (e.g. 80ms at level 30, 50ms at 35+),
+  // matching NES Tetris where pieces lock nearly as fast as they fall.
+  return Math.min(settings.lockDelay, Math.max(50, dropInterval() * 10));
+}
 
 // NES Tetris speed table for levels 1-21, then exponential decay beyond that.
 // Levels 1-21 follow the classic NES curve (800ms → 17ms).
