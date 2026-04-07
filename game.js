@@ -264,6 +264,7 @@ function resumeGame() {
   // Show pause screen immediately so player can orient themselves
   togglePause();
   clearSnapshot(); // will be re-saved on next background
+  updateResumeBtn(); // hide button now that snapshot is consumed
 }
 
 function updateResumeBtn() {
@@ -1466,10 +1467,11 @@ function startCountdown() {
 
   function tick(n) {
     numEl.textContent = n;
-    // Restart CSS animation each tick
-    numEl.classList.remove('countdown-pop');
-    void numEl.offsetWidth; // force reflow
-    numEl.classList.add('countdown-pop');
+    // Restart CSS animation each tick — clear then reapply via inline style
+    // (more reliable than class-toggle on iOS WebKit)
+    numEl.style.animation = 'none';
+    void getComputedStyle(numEl).animation; // force style recalculation
+    numEl.style.animation = 'countdown-pop 0.9s ease-out forwards';
 
     countdownTimer = setTimeout(() => {
       if (n === 1) {
@@ -1525,6 +1527,7 @@ document.getElementById('quit-yes-btn').addEventListener('click', () => {
   document.getElementById('quit-confirm-screen').classList.add('hidden');
   document.getElementById('start-screen').classList.remove('hidden');
   updateBtnBar();
+  updateResumeBtn();
 });
 document.getElementById('quit-no-btn').addEventListener('click', () => {
   document.getElementById('quit-confirm-screen').classList.add('hidden');
@@ -1533,6 +1536,7 @@ document.getElementById('quit-no-btn').addEventListener('click', () => {
 
 // Resume saved game
 document.getElementById('resume-saved-btn').addEventListener('click', () => {
+  if (!hasSavedGame()) return;
   document.getElementById('start-screen').classList.add('hidden');
   resumeGame();
 });
