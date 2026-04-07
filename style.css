@@ -408,6 +408,29 @@
     letter-spacing: 0.12em;
   }
 
+  #countdown-screen {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(4,8,24,0.6);
+    z-index: 200;
+    pointer-events: none;
+  }
+  #countdown-number {
+    font-size: clamp(80px, 22vw, 180px);
+    color: var(--glow-cyan);
+    text-shadow: 0 0 20px var(--glow-cyan), 0 0 60px var(--glow-cyan);
+    font-family: inherit;
+  }
+  .countdown-pop {
+    animation: countdown-pop 0.9s ease-out forwards;
+  }
+  @keyframes countdown-pop {
+    0%   { transform: scale(1.8); opacity: 0.2; }
+    25%  { transform: scale(1.0); opacity: 1; }
+    75%  { transform: scale(1.0); opacity: 1; }
+    100% { transform: scale(0.7); opacity: 0; }
+  }
+
   .hidden { display: none !important; }
   /* ── Desktop: scale side panels with available space ── */
   @media (min-width: 600px) and (pointer: fine) {

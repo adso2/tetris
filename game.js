@@ -365,9 +365,11 @@ function hideComboIndicator() {
 }
 let board, current, nextPieces, held, canHold;
 let score, level, lines, gameRunning, paused, animId;
+let countdownTimer = null;
 let bag = [];
 
 function initGame(startLevel = 1) {
+  cancelCountdown();
   board = Array.from({length:TOTAL_ROWS}, () => Array(COLS).fill(null));
   bag = [];
   score = 0;
@@ -657,6 +659,7 @@ function clearLines() {
 }
 
 function endGame() {
+  cancelCountdown();
   gameRunning = false;
   updateBtnBar();
   if (settings.musicOn) Music.play();
@@ -1450,13 +1453,56 @@ document.querySelectorAll('.overlay').forEach(el => {
 });
 
 // ── Pause ─────────────────────────────────────────────────────────────────────
+function cancelCountdown() {
+  if (countdownTimer === null) return;
+  clearTimeout(countdownTimer);
+  countdownTimer = null;
+  document.getElementById('countdown-screen').classList.add('hidden');
+}
+
+function startCountdown() {
+  const screen = document.getElementById('countdown-screen');
+  const numEl  = document.getElementById('countdown-number');
+
+  function tick(n) {
+    numEl.textContent = n;
+    // Restart CSS animation each tick
+    numEl.classList.remove('countdown-pop');
+    void numEl.offsetWidth; // force reflow
+    numEl.classList.add('countdown-pop');
+
+    countdownTimer = setTimeout(() => {
+      if (n === 1) {
+        screen.classList.add('hidden');
+        countdownTimer = null;
+        paused = false;
+        lastTime = performance.now();
+        if (settings.musicOn) Music.play();
+        updateBtnBar();
+      } else {
+        tick(n - 1);
+      }
+    }, 1000);
+  }
+
+  screen.classList.remove('hidden');
+  tick(3);
+}
+
 function togglePause() {
   if (!gameRunning) return;
-  paused = !paused;
-  document.getElementById('pause-screen').classList.toggle('hidden', !paused);
-  if (settings.musicOn) Music.play();
-  if (!paused) lastTime = performance.now();
-  updateBtnBar();
+  if (!paused) {
+    // Pausing
+    paused = true;
+    document.getElementById('pause-screen').classList.remove('hidden');
+    if (settings.musicOn) Music.play();
+    updateBtnBar();
+  } else {
+    // Unpausing — cancel any active countdown and start a fresh one
+    cancelCountdown();
+    document.getElementById('pause-screen').classList.add('hidden');
+    startCountdown();
+  }
 }
 document.getElementById('pause-btn-box').addEventListener('click', togglePause);
 document.getElementById('resume-btn').addEventListener('click', togglePause);
