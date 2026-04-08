@@ -922,8 +922,13 @@ const Music = (() => {
   }
 
   function activate(player) {
+    // Always cancel any in-progress crossfade. A fade started during pause runs at
+    // vol=0.15; if the game unpauses before it finishes, the interval would override
+    // the full-volume play() call and eventually pause the active track, making the
+    // music go silent. Cancelling here lets the song re-trigger a fresh crossfade at
+    // the correct volume when it next nears its end.
+    current.cancelFade();
     if (player !== current) {
-      current.cancelFade(); // abort any in-progress crossfade on outgoing player
       current.active.pause();
       if (!current.next.paused) current.next.pause();
       current = player;
