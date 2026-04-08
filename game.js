@@ -483,7 +483,9 @@ function loop(time=0) {
 
     draw();
   }
-  animId = requestAnimationFrame(loop);
+  // Only continue the loop while the game is active. Stopping when gameRunning=false
+  // prevents a zombie loop (from quit or endGame) from interfering with the next session.
+  if (gameRunning) animId = requestAnimationFrame(loop);
 }
 
 // ── Movement ──────────────────────────────────────────────────────────────────
@@ -861,7 +863,14 @@ const Music = (() => {
   function makePlayer(src) {
     const a = new Audio(src); a.preload = 'auto';
     const b = new Audio(src); b.preload = 'auto';
-    const p = { a, b, active: a, next: b, fading: false };
+    const p = { a, b, active: a, next: b, fading: false, fadeId: null };
+
+    function cancelFade() {
+      if (!p.fadeId) return;
+      clearInterval(p.fadeId); p.fadeId = null;
+      p.next.pause(); p.next.currentTime = 0; p.next.volume = 0;
+      p.fading = false;
+    }
 
     function crossfade() {
       if (p.fading) return;
@@ -871,19 +880,21 @@ const Music = (() => {
       p.next.play().catch(() => {});
       const steps = (FADE_SECS * 1000) / STEP_MS;
       let s = 0;
-      const id = setInterval(() => {
+      p.fadeId = setInterval(() => {
         s++;
         const t = Math.min(s / steps, 1);
         p.active.volume = vol * (1 - t);
         p.next.volume   = vol * t;
         if (s >= steps) {
-          clearInterval(id);
+          clearInterval(p.fadeId); p.fadeId = null;
           p.active.pause(); p.active.currentTime = 0;
           [p.active, p.next] = [p.next, p.active];
           p.fading = false;
         }
       }, STEP_MS);
     }
+
+    p.cancelFade = cancelFade;
 
     [a, b].forEach(track => {
       track.addEventListener('timeupdate', () => {
@@ -912,6 +923,7 @@ const Music = (() => {
 
   function activate(player) {
     if (player !== current) {
+      current.cancelFade(); // abort any in-progress crossfade on outgoing player
       current.active.pause();
       if (!current.next.paused) current.next.pause();
       current = player;
@@ -922,15 +934,31 @@ const Music = (() => {
 
   return {
     play()       { activate(desiredPlayer()); },
-    pause()      { softPlayer.a.pause(); softPlayer.b.pause();
-                   edcPlayer.a.pause();  edcPlayer.b.pause(); },
+    pause()      {
+      // Cancel any in-progress crossfade before pausing — otherwise the interval
+      // keeps running in the background, swaps active/next when it finishes, and
+      // leaves the new active paused with nobody to restart it (music goes silent).
+      softPlayer.cancelFade(); edcPlayer.cancelFade();
+      softPlayer.a.pause(); softPlayer.b.pause();
+      edcPlayer.a.pause();  edcPlayer.b.pause();
+    },
     setVolume(v) { current.active.volume = v;
                    if (!current.next.paused) current.next.volume = v; },
-    // Unlock audio elements on first user gesture so later non-gesture play() calls work
-    unlock()     { softPlayer.active.play().then(() => { if (!settings.musicOn) softPlayer.active.pause(); }).catch(() => {}); },
+    // Unlock all four audio elements in a user-gesture context so that the crossfade
+    // engine can call play() on any of them later without triggering iOS autoplay blocks.
+    // Only call this from a user gesture handler.
+    unlock() {
+      const all = [softPlayer.a, softPlayer.b, edcPlayer.a, edcPlayer.b];
+      all.forEach(el => {
+        if (el === softPlayer.active && settings.musicOn) return; // started by play() below
+        const v = el.volume; el.volume = 0;
+        el.play().then(() => { el.pause(); el.volume = v; }).catch(() => {});
+      });
+      if (settings.musicOn) activate(desiredPlayer());
+    },
     // Resets EDC player to start for a new game; soft player keeps its position
     restart()    {
-      edcPlayer.fading = false;
+      edcPlayer.cancelFade();
       edcPlayer.a.pause(); edcPlayer.b.pause();
       edcPlayer.a.currentTime = 0; edcPlayer.b.currentTime = 0;
       edcPlayer.active = edcPlayer.a; edcPlayer.next = edcPlayer.b;
@@ -1520,9 +1548,10 @@ document.getElementById('quit-btn').addEventListener('click', () => {
   document.getElementById('quit-confirm-screen').classList.remove('hidden');
 });
 document.getElementById('quit-yes-btn').addEventListener('click', () => {
+  saveSnapshot(); // save before clearing gameRunning so the snapshot is captured
   gameRunning = false;
   paused = false;
-  cancelAnimationFrame(animId);
+  // No need to cancelAnimationFrame — loop stops itself when gameRunning=false
   if (settings.musicOn) Music.play();
   document.getElementById('quit-confirm-screen').classList.add('hidden');
   document.getElementById('start-screen').classList.remove('hidden');
@@ -1599,10 +1628,12 @@ updateResumeBtn(); // show resume button if a saved game exists
 
 // Browsers block autoplay until a user gesture. Unlock audio on first interaction
 // so that later Music.play() calls work even from non-gesture contexts (e.g. keyboard).
-// If music is off, do nothing — calling play() even briefly takes over the iOS audio
-// session and interrupts any music the user is already listening to.
+// iOS requires each HTMLAudioElement to be individually played inside a user gesture —
+// if only the active track is unlocked, the crossfade's play() on the next track fails
+// silently, causing music to stop after one song.
 function onFirstGesture() {
-  if (settings.musicOn) Music.play();
+  if (!settings.musicOn) return;
+  Music.unlock();
 }
 document.addEventListener('click',      onFirstGesture, { once: true });
 document.addEventListener('touchstart', onFirstGesture, { once: true });
@@ -1652,6 +1683,7 @@ setupGameCtrlBtn('gcbtn-drop',  () => { hardDrop(); vibDrop(); });
 // Auto-pause and save snapshot when app goes to background
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
+    cancelCountdown(); // stop any mid-countdown — prevents unpausing while backgrounded
     if (gameRunning && !paused) togglePause();
     Music.pause(); // always stop music when screen off / app backgrounded
     saveSnapshot();
