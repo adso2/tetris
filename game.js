@@ -255,14 +255,20 @@ function resumeGame() {
   lockMoves   = snap.lockMoves || 0;
   dropCounter = 0; // reset drop counter so piece doesn't instantly fall
   lastTime    = 0;
+  // Set state the same way initGame does — explicit assignments, not via togglePause().
+  // This ensures gameRunning/paused are always in a known state before the loop starts,
+  // and Music.play() is called with the correct context (gameRunning=true, paused=true).
+  cancelCountdown();
   gameRunning = true;
-  paused      = false;
+  paused      = true; // start paused so the player can orient before resuming
   hideComboIndicator();
   updateUI();
   cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
-  // Show pause screen immediately so player can orient themselves
-  togglePause();
+  document.getElementById('pause-screen').classList.remove('hidden');
+  Music.restart(); // mirror initGame: reset EDC track position for the new session
+  if (settings.musicOn) Music.play(); // explicit call at paused=true → 0.15 vol
+  updateBtnBar();
   clearSnapshot(); // will be re-saved on next background
   updateResumeBtn(); // hide button now that snapshot is consumed
 }
@@ -1553,6 +1559,7 @@ document.getElementById('quit-btn').addEventListener('click', () => {
   document.getElementById('quit-confirm-screen').classList.remove('hidden');
 });
 document.getElementById('quit-yes-btn').addEventListener('click', () => {
+  cancelCountdown();
   saveSnapshot(); // save before clearing gameRunning so the snapshot is captured
   gameRunning = false;
   paused = false;
