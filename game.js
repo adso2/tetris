@@ -895,6 +895,7 @@ const Music = (() => {
           clearInterval(p.fadeId); p.fadeId = null;
           p.active.pause(); p.active.currentTime = 0;
           [p.active, p.next] = [p.next, p.active];
+          p.active.volume = targetVol(); // sync to current game state (e.g. if unpaused mid-fade)
           p.fading = false;
         }
       }, STEP_MS);
@@ -940,7 +941,10 @@ const Music = (() => {
       current = player;
     }
     current.active.volume = targetVol();
-    current.active.play().catch(() => {});
+    // Only call play() when the element is not already playing. Calling play() on an
+    // already-playing element in Safari can cause a brief restart (audible glitch or
+    // momentary silence). When the element is playing, a volume update is sufficient.
+    if (current.active.paused) current.active.play().catch(() => {});
   }
 
   return {
