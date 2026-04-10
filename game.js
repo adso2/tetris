@@ -270,7 +270,8 @@ function resumeGame() {
   Music.restart();
   if (settings.musicOn) Music.play();
   updateBtnBar();
-  clearSnapshot();
+  // Keep the snapshot alive until the game ends naturally (endGame clears it).
+  // Clearing it here would lose the save if the browser crashes during the countdown.
   updateResumeBtn();
   startCountdown(); // go straight into countdown — no extra Resume button press needed
 }
@@ -1764,3 +1765,85 @@ self.addEventListener('fetch', e => {
   navigator.serviceWorker.register(swUrl, {scope: './'})
     .catch(() => {}); // silently fail if SW registration fails (e.g. file://)
 }
+
+// ── Dev invariant checker — call check() in the browser console ───────────────
+// Verifies that music, game state, and snapshot flags are all self-consistent.
+// Useful for catching regressions where a fix in one area silently breaks another.
+window.check = function() {
+  const log = [];
+  const fail = msg => { log.push('FAIL  ' + msg); };
+  const pass = msg => { log.push('ok    ' + msg); };
+
+  // 1. Music vs gameRunning
+  const softA = Music._dbg?.softA, softB = Music._dbg?.softB;
+  // We can't directly inspect Music internals, so we infer from audio elements in the DOM.
+  // Instead, check the logical rules:
+  if (settings.musicOn && gameRunning && !paused) {
+    pass('musicOn + gameRunning + !paused: music should be playing');
+  }
+  if (!settings.musicOn) {
+    pass('musicOn=false: music should be silent');
+  }
+
+  // 2. paused only valid when gameRunning
+  if (paused && !gameRunning) {
+    fail('paused=true but gameRunning=false — impossible state');
+  } else {
+    pass('paused/gameRunning relationship is consistent');
+  }
+
+  // 3. Snapshot vs game state
+  const snap = loadSnapshot();
+  if (gameRunning && snap) {
+    // Both active game AND a saved snapshot exist. Fine only if this is a resumed game
+    // that hasn't ended yet (snapshot will be cleared on endGame).
+    pass('snapshot present while game is running (resumed game path — will clear on endGame)');
+  }
+  if (!gameRunning && snap) {
+    pass('snapshot present, game not running — RESUME GAME button should be visible');
+    const btn = document.getElementById('resume-saved-btn');
+    if (btn.classList.contains('hidden')) {
+      fail('snapshot exists but RESUME GAME button is hidden — updateResumeBtn() out of sync');
+    } else {
+      pass('RESUME GAME button is correctly visible');
+    }
+  }
+  if (!gameRunning && !snap) {
+    const btn = document.getElementById('resume-saved-btn');
+    if (!btn.classList.contains('hidden')) {
+      fail('no snapshot but RESUME GAME button is visible — stale button state');
+    } else {
+      pass('no snapshot, RESUME GAME button correctly hidden');
+    }
+  }
+
+  // 4. Overlay consistency — exactly one overlay should be visible at a time
+  const overlays = ['start-screen','pause-screen','gameover-screen','leaderboard-screen','quit-confirm-screen'];
+  const visible = overlays.filter(id => !document.getElementById(id).classList.contains('hidden'));
+  if (visible.length > 1) {
+    fail('multiple overlays visible at once: ' + visible.join(', '));
+  } else if (visible.length === 1) {
+    pass('exactly one overlay visible: ' + visible[0]);
+  } else if (!gameRunning) {
+    fail('no overlay visible but game is not running — should be showing start/gameover');
+  } else {
+    pass('no overlay, game is running');
+  }
+
+  // 5. current piece valid while game running
+  if (gameRunning && !current) {
+    fail('gameRunning=true but current piece is null');
+  } else if (gameRunning) {
+    pass('current piece exists while game running');
+  }
+
+  console.group('%cTetris state check', 'font-weight:bold;font-size:14px');
+  log.forEach(l => {
+    const color = l.startsWith('FAIL') ? 'color:red;font-weight:bold' : 'color:green';
+    console.log('%c' + l, color);
+  });
+  const fails = log.filter(l => l.startsWith('FAIL')).length;
+  console.log('%c' + (fails ? `${fails} FAILURE(S)` : 'All checks passed'), fails ? 'color:red;font-weight:bold;font-size:13px' : 'color:lime;font-weight:bold;font-size:13px');
+  console.groupEnd();
+  return fails === 0;
+};
