@@ -263,6 +263,13 @@ function resumeGame() {
   paused      = true; // start paused so the player can orient before resuming
   hideComboIndicator();
   updateUI();
+  // Clear any stale overlays that might have been left visible from a previous session
+  // (e.g. gameover-screen, start-screen, quit-confirm-screen) before showing pause-screen.
+  ['start-screen','gameover-screen','leaderboard-screen','quit-confirm-screen','countdown-screen']
+    .forEach(id => document.getElementById(id).classList.add('hidden'));
+  // Draw the board immediately so the canvas shows the restored state while paused,
+  // not leftover content from the previous session.
+  draw(); drawNext(); drawMini(holdCtx, held, holdCvs.width, holdCvs.height);
   cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
   document.getElementById('pause-screen').classList.remove('hidden');
@@ -920,8 +927,12 @@ const Music = (() => {
 
   function targetVol() {
     if (!settings.musicOn) return 0;
-    if (!gameRunning || paused) return 0.15;
-    return settings.musicVolume / 100;
+    const v = settings.musicVolume / 100;
+    // Menus and pause use a quiet level, capped at the user's volume setting.
+    // Using Math.min ensures musicVolume=0 stays silent everywhere (not just gameplay),
+    // preventing the confusing state where pause is audible but gameplay is silent.
+    if (!gameRunning || paused) return Math.min(v, 0.15);
+    return v;
   }
 
   function desiredPlayer() {
