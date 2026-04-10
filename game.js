@@ -874,13 +874,19 @@ const Music = (() => {
   const FADE_SECS = 2.5;
   const STEP_MS   = 50;
 
+  // ── Diagnostic logging ── set Music.debug = true in the browser console to enable
+  let _debug = false;
+  function mlog(...args) { if (_debug) console.debug('[Music]', ...args); }
+
   function makePlayer(src) {
+    const label = src.split('/').pop().replace('.mp3','');
     const a = new Audio(src); a.preload = 'auto';
     const b = new Audio(src); b.preload = 'auto';
-    const p = { a, b, active: a, next: b, fading: false, fadeId: null };
+    const p = { a, b, active: a, next: b, fading: false, fadeId: null, label };
 
     function cancelFade() {
       if (!p.fadeId) return;
+      mlog(`${label} cancelFade — stopping crossfade mid-flight`);
       clearInterval(p.fadeId); p.fadeId = null;
       p.next.pause(); p.next.currentTime = 0; p.next.volume = 0;
       p.fading = false;
@@ -888,10 +894,11 @@ const Music = (() => {
 
     function crossfade() {
       if (p.fading) return;
+      mlog(`${label} crossfade START — active.currentTime=${p.active.currentTime.toFixed(1)} duration=${p.active.duration?.toFixed(1)}`);
       p.fading = true;
-      const vol = p.active.volume; // fade relative to current playing volume
+      const vol = p.active.volume;
       p.next.currentTime = 0; p.next.volume = 0;
-      p.next.play().catch(() => {});
+      p.next.play().catch(e => mlog(`${label} crossfade next.play() REJECTED:`, e));
       const steps = (FADE_SECS * 1000) / STEP_MS;
       let s = 0;
       p.fadeId = setInterval(() => {
@@ -903,20 +910,26 @@ const Music = (() => {
           clearInterval(p.fadeId); p.fadeId = null;
           p.active.pause(); p.active.currentTime = 0;
           [p.active, p.next] = [p.next, p.active];
-          p.active.volume = targetVol(); // sync to current game state (e.g. if unpaused mid-fade)
+          p.active.volume = targetVol();
           p.fading = false;
+          mlog(`${label} crossfade COMPLETE — now active=${p.active === a ? 'a' : 'b'}`);
         }
       }, STEP_MS);
     }
 
     p.cancelFade = cancelFade;
 
-    [a, b].forEach(track => {
+    [a, b].forEach((track, i) => {
       track.addEventListener('timeupdate', () => {
         if (track === p.active && !p.fading && track.duration) {
           if (track.currentTime >= track.duration - FADE_SECS) crossfade();
         }
       });
+      track.addEventListener('pause',  () => mlog(`${label}[${i===0?'a':'b'}] paused  — t=${track.currentTime.toFixed(1)} paused=${track.paused}`));
+      track.addEventListener('play',   () => mlog(`${label}[${i===0?'a':'b'}] play    — t=${track.currentTime.toFixed(1)}`));
+      track.addEventListener('error',  () => mlog(`${label}[${i===0?'a':'b'}] ERROR   — code=${track.error?.code}`));
+      track.addEventListener('waiting',() => mlog(`${label}[${i===0?'a':'b'}] waiting (buffering)`));
+      track.addEventListener('stalled',() => mlog(`${label}[${i===0?'a':'b'}] stalled`));
     });
 
     return p;
@@ -936,9 +949,7 @@ const Music = (() => {
   }
 
   function activate(player) {
-    // Always cancel any in-progress crossfade so a stale fade interval can't later
-    // reduce volume to 0 and pause the active track. The song will re-trigger a
-    // fresh crossfade at the correct volume when it next nears its end.
+    mlog(`activate(${player.label}) — current=${current.label} active.paused=${current.active.paused} active.readyState=${current.active.readyState}`);
     current.cancelFade();
     if (player !== current) {
       current.active.pause();
@@ -952,11 +963,15 @@ const Music = (() => {
     // Calling play() on an already-playing element is a spec-defined no-op in modern
     // browsers; the old "Safari restart glitch" concern no longer outweighs the risk
     // of silent music from a missed play() call.
-    current.active.play().catch(() => {});
+    current.active.play()
+      .then(() => mlog(`activate play() resolved — ${current.label} active.paused=${current.active.paused}`))
+      .catch(e => mlog(`activate play() REJECTED:`, e?.name, e?.message));
   }
 
   return {
-    play()       { activate(desiredPlayer()); },
+    get debug()    { return _debug; },
+    set debug(v)   { _debug = !!v; console.log('[Music] debug', _debug ? 'ON' : 'OFF'); },
+    play()       { mlog(`Music.play() called — gameRunning=${gameRunning} paused=${paused} musicOn=${settings.musicOn}`); activate(desiredPlayer()); },
     pause()      {
       // Cancel any in-progress crossfade before pausing — otherwise the interval
       // keeps running in the background, swaps active/next when it finishes, and
