@@ -236,7 +236,13 @@ function hasSavedGame() { return !!loadSnapshot(); }
 
 function resumeGame() {
   const snap = loadSnapshot();
-  if (!snap) return;
+  if (!snap) {
+    // Snapshot missing or expired — put the start screen back so the user isn't
+    // left staring at a blank canvas with nothing interactive.
+    document.getElementById('start-screen').classList.remove('hidden');
+    updateResumeBtn(); // will hide the resume button since snapshot is gone
+    return;
+  }
   board       = snap.board;
   current     = snap.current;
   nextPieces  = snap.nextPieces;
@@ -267,7 +273,8 @@ function resumeGame() {
   draw(); drawNext(); drawMini(holdCtx, held, holdCvs.width, holdCvs.height);
   cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
-  Music.restart();
+  // Don't seek to start on resume — just play from wherever the track is.
+  // Seeking is for new games; avoiding any pause/play disruption here.
   if (settings.musicOn) Music.play();
   updateBtnBar();
   // Keep the snapshot alive until the game ends naturally (endGame clears it).
@@ -396,7 +403,7 @@ function initGame(startLevel = 1) {
   updateUI();
   cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
-  Music.restart();
+  Music.seekToStart(); // seek without pausing — avoids play-after-pause AbortError
   if (settings.musicOn) Music.play();
   updateBtnBar();
 }
@@ -970,15 +977,16 @@ const Music = (() => {
         el.play().then(() => { el.pause(); el.volume = v; }).catch(() => {});
       });
     },
-    // Resets both players to start for a new game
-    restart()    {
+    // Seek both players back to position 0 WITHOUT pausing.
+    // Seeking while paused (or playing) does not call pause() so there is no
+    // play-after-pause race that can cause browsers to reject the next play() call.
+    seekToStart() {
       softPlayer.cancelFade(); edcPlayer.cancelFade();
-      softPlayer.a.pause(); softPlayer.b.pause();
-      softPlayer.a.currentTime = 0; softPlayer.b.currentTime = 0;
-      softPlayer.active = softPlayer.a; softPlayer.next = softPlayer.b;
-      edcPlayer.a.pause(); edcPlayer.b.pause();
-      edcPlayer.a.currentTime = 0; edcPlayer.b.currentTime = 0;
-      edcPlayer.active = edcPlayer.a; edcPlayer.next = edcPlayer.b;
+      // Seek the active track; hard-stop the next track so it doesn't drift.
+      softPlayer.a.currentTime = 0; softPlayer.b.pause(); softPlayer.b.currentTime = 0;
+      softPlayer.active = softPlayer.a; softPlayer.next = softPlayer.b; softPlayer.fading = false;
+      edcPlayer.a.currentTime = 0;  edcPlayer.b.pause();  edcPlayer.b.currentTime = 0;
+      edcPlayer.active = edcPlayer.a; edcPlayer.next = edcPlayer.b; edcPlayer.fading = false;
     },
   };
 })();
@@ -1544,9 +1552,15 @@ function togglePause() {
     document.getElementById('pause-screen').classList.remove('hidden');
     if (settings.musicOn) Music.play();
     updateBtnBar();
-  } else {
-    // Unpausing — cancel any active countdown and start a fresh one
+  } else if (countdownTimer !== null) {
+    // Pause pressed mid-countdown — cancel the countdown and show the pause screen
+    // instead of restarting the countdown (which made pause inaccessible during resume).
     cancelCountdown();
+    document.getElementById('pause-screen').classList.remove('hidden');
+    if (settings.musicOn) Music.play();
+    updateBtnBar();
+  } else {
+    // Unpausing from the pause screen — start the resume countdown
     document.getElementById('pause-screen').classList.add('hidden');
     startCountdown();
   }
