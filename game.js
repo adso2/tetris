@@ -403,7 +403,6 @@ function initGame(startLevel = 1) {
   updateUI();
   cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
-  Music.seekToStart(); // seek without pausing — avoids play-after-pause AbortError
   if (settings.musicOn) Music.play();
   updateBtnBar();
 }
@@ -947,10 +946,13 @@ const Music = (() => {
       current = player;
     }
     current.active.volume = targetVol();
-    // Only call play() when the element is not already playing. Calling play() on an
-    // already-playing element in Safari can cause a brief restart (audible glitch or
-    // momentary silence). When the element is playing, a volume update is sufficient.
-    if (current.active.paused) current.active.play().catch(() => {});
+    // Always call play() — do not guard on .paused. When the element is in a seeking
+    // or buffering transitional state, .paused can be false while audio is not
+    // actually playing, causing the guard to skip the play() call and leave silence.
+    // Calling play() on an already-playing element is a spec-defined no-op in modern
+    // browsers; the old "Safari restart glitch" concern no longer outweighs the risk
+    // of silent music from a missed play() call.
+    current.active.play().catch(() => {});
   }
 
   return {
