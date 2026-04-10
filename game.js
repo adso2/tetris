@@ -255,29 +255,24 @@ function resumeGame() {
   lockMoves   = snap.lockMoves || 0;
   dropCounter = 0; // reset drop counter so piece doesn't instantly fall
   lastTime    = 0;
-  // Set state the same way initGame does — explicit assignments, not via togglePause().
-  // This ensures gameRunning/paused are always in a known state before the loop starts,
-  // and Music.play() is called with the correct context (gameRunning=true, paused=true).
   cancelCountdown();
   gameRunning = true;
-  paused      = true; // start paused so the player can orient before resuming
+  paused      = true; // countdown will set this to false
   hideComboIndicator();
   updateUI();
-  // Clear any stale overlays that might have been left visible from a previous session
-  // (e.g. gameover-screen, start-screen, quit-confirm-screen) before showing pause-screen.
-  ['start-screen','gameover-screen','leaderboard-screen','quit-confirm-screen','countdown-screen']
+  // Clear all overlays before starting the countdown
+  ['start-screen','gameover-screen','leaderboard-screen','quit-confirm-screen','countdown-screen','pause-screen']
     .forEach(id => document.getElementById(id).classList.add('hidden'));
-  // Draw the board immediately so the canvas shows the restored state while paused,
-  // not leftover content from the previous session.
+  // Draw the board so the canvas shows restored state during the countdown
   draw(); drawNext(); drawMini(holdCtx, held, holdCvs.width, holdCvs.height);
   cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
-  document.getElementById('pause-screen').classList.remove('hidden');
-  Music.restart(); // mirror initGame: reset EDC track position for the new session
-  if (settings.musicOn) Music.play(); // explicit call at paused=true → 0.15 vol
+  Music.restart();
+  if (settings.musicOn) Music.play();
   updateBtnBar();
-  clearSnapshot(); // will be re-saved on next background
-  updateResumeBtn(); // hide button now that snapshot is consumed
+  clearSnapshot();
+  updateResumeBtn();
+  startCountdown(); // go straight into countdown — no extra Resume button press needed
 }
 
 function updateResumeBtn() {
@@ -678,8 +673,7 @@ function endGame() {
   cancelCountdown();
   gameRunning = false;
   updateBtnBar();
-  if (settings.musicOn) Music.play();
-  else Music.pause();
+  Music.pause();
   clearSnapshot(); // game ended naturally — no resume needed
   updateResumeBtn();
   const best = getBestScore();
@@ -927,12 +921,7 @@ const Music = (() => {
 
   function targetVol() {
     if (!settings.musicOn) return 0;
-    const v = settings.musicVolume / 100;
-    // Menus and pause use a quiet level, capped at the user's volume setting.
-    // Using Math.min ensures musicVolume=0 stays silent everywhere (not just gameplay),
-    // preventing the confusing state where pause is audible but gameplay is silent.
-    if (!gameRunning || paused) return Math.min(v, 0.15);
-    return v;
+    return settings.musicVolume / 100;
   }
 
   function desiredPlayer() {
@@ -940,11 +929,9 @@ const Music = (() => {
   }
 
   function activate(player) {
-    // Always cancel any in-progress crossfade. A fade started during pause runs at
-    // vol=0.15; if the game unpauses before it finishes, the interval would override
-    // the full-volume play() call and eventually pause the active track, making the
-    // music go silent. Cancelling here lets the song re-trigger a fresh crossfade at
-    // the correct volume when it next nears its end.
+    // Always cancel any in-progress crossfade so a stale fade interval can't later
+    // reduce volume to 0 and pause the active track. The song will re-trigger a
+    // fresh crossfade at the correct volume when it next nears its end.
     current.cancelFade();
     if (player !== current) {
       current.active.pause();
@@ -974,17 +961,20 @@ const Music = (() => {
     // engine can call play() on any of them later without triggering iOS autoplay blocks.
     // Only call this from a user gesture handler.
     unlock() {
+      // Skip any element already playing (e.g. initGame was triggered on the same gesture).
       const all = [softPlayer.a, softPlayer.b, edcPlayer.a, edcPlayer.b];
       all.forEach(el => {
-        if (el === softPlayer.active && settings.musicOn) return; // started by play() below
+        if (!el.paused) return;
         const v = el.volume; el.volume = 0;
         el.play().then(() => { el.pause(); el.volume = v; }).catch(() => {});
       });
-      if (settings.musicOn) activate(desiredPlayer());
     },
-    // Resets EDC player to start for a new game; soft player keeps its position
+    // Resets both players to start for a new game
     restart()    {
-      edcPlayer.cancelFade();
+      softPlayer.cancelFade(); edcPlayer.cancelFade();
+      softPlayer.a.pause(); softPlayer.b.pause();
+      softPlayer.a.currentTime = 0; softPlayer.b.currentTime = 0;
+      softPlayer.active = softPlayer.a; softPlayer.next = softPlayer.b;
       edcPlayer.a.pause(); edcPlayer.b.pause();
       edcPlayer.a.currentTime = 0; edcPlayer.b.currentTime = 0;
       edcPlayer.active = edcPlayer.a; edcPlayer.next = edcPlayer.b;
@@ -993,7 +983,7 @@ const Music = (() => {
 })();
 
 function applyMusicState() {
-  if (settings.musicOn) Music.play();
+  if (settings.musicOn && gameRunning) Music.play();
   else Music.pause();
 }
 
@@ -1010,7 +1000,7 @@ addToggleListener('toggle-music-start', toggleMusicSetting);
 document.getElementById('slider-music').addEventListener('input', e => {
   settings.musicVolume = parseInt(e.target.value);
   document.getElementById('val-music').textContent = settings.musicVolume + '%';
-  if (settings.musicOn && gameRunning) Music.setVolume(paused ? 0.15 : settings.musicVolume / 100);
+  if (settings.musicOn && gameRunning) Music.setVolume(settings.musicVolume / 100);
   saveSettings();
 });
 
@@ -1177,7 +1167,7 @@ function toggleVizSetting() {
   setToggle('toggle-viz', settings.edcMode);
   setToggle('toggle-viz-start', settings.edcMode);
   if (!settings.edcMode) vizCtx.clearRect(0, 0, vizCanvas.width, vizCanvas.height);
-  if (settings.musicOn) Music.play();
+  if (settings.musicOn && gameRunning) Music.play();
   saveSettings();
 }
 addToggleListener('toggle-viz', toggleVizSetting);
@@ -1579,7 +1569,7 @@ document.getElementById('quit-yes-btn').addEventListener('click', () => {
   gameRunning = false;
   paused = false;
   // No need to cancelAnimationFrame — loop stops itself when gameRunning=false
-  if (settings.musicOn) Music.play();
+  Music.pause();
   document.getElementById('quit-confirm-screen').classList.add('hidden');
   document.getElementById('start-screen').classList.remove('hidden');
   updateBtnBar();
@@ -1715,7 +1705,7 @@ document.addEventListener('visibilitychange', () => {
     Music.pause(); // always stop music when screen off / app backgrounded
     saveSnapshot();
   } else {
-    if (settings.musicOn) Music.play(); // restore when returning to app
+    if (settings.musicOn && gameRunning) Music.play(); // restore only during active game
   }
 });
 // Also save on page close/navigation
