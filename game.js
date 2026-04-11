@@ -1023,10 +1023,14 @@ const Music = (() => {
         mlog(`unlock: play ${names[i]} (muted, was paused)`);
         el.play()
           .then(() => {
-            el.muted = false; // restore muted state before pause or keep
             const keep = _claimed.has(el);
             mlog(`unlock .then: ${names[i]} → ${keep ? 'KEEP (activated)' : 'pause'}`);
-            if (!keep) el.pause();
+            if (!keep) {
+              el.pause();       // pause FIRST while still muted — no audible bleed
+              el.muted = false; // then restore muted state
+            } else {
+              el.muted = false; // kept element: just unmute
+            }
           })
           .catch(e => { el.muted = false; mlog(`unlock .catch: ${names[i]} ${e?.name}`); });
       });
