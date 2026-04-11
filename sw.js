@@ -1,24 +1,17 @@
-const CACHE = 'tetris-v7';
-const CORE_ASSETS = [
-  './',
-  './index.html',
-  './game.js',
-  './style.css',
-];
+// Cache version — only bump this if you need to force-clear the audio cache.
+// Code files (game.js, style.css, index.html) are served network-first so they
+// always update automatically; bumping the version is NOT needed for code changes.
+const CACHE = 'tetris-v8';
+
 const AUDIO_ASSETS = [
   './Softly Falling Blocks.mp3',
   './Cyber Jurassic Tetris.mp3',
 ];
 
 self.addEventListener('install', event => {
+  // Only pre-cache audio — code files are fetched fresh on every load.
   event.waitUntil(
-    caches.open(CACHE).then(cache =>
-      // Cache core assets (required); cache audio separately so a slow
-      // network on first visit doesn't block the install.
-      cache.addAll(CORE_ASSETS).then(() => {
-        cache.addAll(AUDIO_ASSETS).catch(() => {});
-      })
-    )
+    caches.open(CACHE).then(cache => cache.addAll(AUDIO_ASSETS).catch(() => {}))
   );
   self.skipWaiting();
 });
@@ -50,15 +43,38 @@ self.addEventListener('fetch', event => {
               cache.put(event.request, response.clone());
               return response;
             })
-            .catch(() => cached); // offline and not yet cached — silent fail
+            .catch(() => cached);
         })
       )
     );
     return;
   }
 
-  // Everything else: cache-first, fall back to network
+  // Audio files: cache-first — large files that never change.
+  // Serve from cache immediately; fetch and cache on first visit.
+  if (url.endsWith('.mp3')) {
+    event.respondWith(
+      caches.match(event.request).then(cached => {
+        if (cached) return cached;
+        return fetch(event.request).then(response => {
+          caches.open(CACHE).then(c => c.put(event.request, response.clone()));
+          return response;
+        });
+      })
+    );
+    return;
+  }
+
+  // Code files (HTML, JS, CSS) and everything else: network-first.
+  // Always fetch fresh code when online so updates reach the app immediately.
+  // Fall back to cache so the app still loads when offline.
   event.respondWith(
-    caches.match(event.request).then(cached => cached || fetch(event.request))
+    fetch(event.request)
+      .then(response => {
+        // Store the fresh response in cache for offline use
+        caches.open(CACHE).then(cache => cache.put(event.request, response.clone()));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
