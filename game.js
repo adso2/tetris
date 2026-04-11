@@ -974,6 +974,7 @@ const Music = (() => {
       current = player;
     }
     current.active.volume = targetVol();
+    current.active.muted = false; // ensure audible — unlock() may have muted it
     mlog(`activate: set ${current.label}.active.volume=${current.active.volume.toFixed(2)}`);
     _claimed.add(current.active); // mark so unlock() .then() won't pause this element
     // Always call play() — do not guard on .paused. When the element is in a seeking
@@ -1014,19 +1015,20 @@ const Music = (() => {
           mlog(`unlock: SKIP ${names[i]} — already playing vol=${el.volume.toFixed(2)}`);
           return;
         }
-        el.volume = 0;
-        mlog(`unlock: play ${names[i]} (was paused)`);
+        // Mute before play so no audio is produced during the unlock window.
+        // iOS ignores el.volume = 0, but el.muted = true is respected — without
+        // this, all four elements produce audible output for ~300ms between
+        // play() and when .then() fires (audio data arrives while buffering).
+        el.muted = true;
+        mlog(`unlock: play ${names[i]} (muted, was paused)`);
         el.play()
           .then(() => {
-            // iOS ignores el.volume = 0 (volume is hardware-controlled and read-only
-            // in Safari). Volume checks are therefore unreliable. Use _claimed instead:
-            // activate() adds the element it started to _claimed before calling play(),
-            // so we know here whether this element was claimed for real playback.
+            el.muted = false; // restore muted state before pause or keep
             const keep = _claimed.has(el);
-            mlog(`unlock .then: ${names[i]} vol=${el.volume.toFixed(2)} → ${keep ? 'KEEP (activated)' : 'pause'}`);
+            mlog(`unlock .then: ${names[i]} → ${keep ? 'KEEP (activated)' : 'pause'}`);
             if (!keep) el.pause();
           })
-          .catch(e => mlog(`unlock .catch: ${names[i]} ${e?.name}`));
+          .catch(e => { el.muted = false; mlog(`unlock .catch: ${names[i]} ${e?.name}`); });
       });
       mlog('unlock() END (sync)');
     },
