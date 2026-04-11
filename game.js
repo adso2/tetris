@@ -403,6 +403,13 @@ function initGame(startLevel = 1) {
   updateUI();
   cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
+  // Seek both players to the start before playing so the track doesn't resume
+  // at a late position from the previous game (which would trigger an immediate
+  // crossfade and cause both 'a' and 'b' elements to play simultaneously).
+  // Safe to call while elements are paused (endGame/pause always pauses first).
+  // The timeupdate !track.paused guard prevents any seek-triggered stale events
+  // from accidentally kicking off a crossfade.
+  Music.seekToStart();
   if (settings.musicOn) Music.play();
   updateBtnBar();
 }
@@ -921,7 +928,12 @@ const Music = (() => {
 
     [a, b].forEach((track, i) => {
       track.addEventListener('timeupdate', () => {
-        if (track === p.active && !p.fading && track.duration) {
+        // Guard !track.paused: timeupdate can fire on paused elements (stale event
+        // queued before pause, or fired on seek). Crossfade must only run during
+        // active playback — firing it on a paused element causes the next element
+        // to start playing unexpectedly, producing double-track audio on the next
+        // Music.play() call.
+        if (track === p.active && !p.fading && track.duration && !track.paused) {
           if (track.currentTime >= track.duration - FADE_SECS) crossfade();
         }
       });
