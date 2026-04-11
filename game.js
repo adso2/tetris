@@ -951,6 +951,11 @@ const Music = (() => {
   const edcPlayer  = makePlayer('Cyber Jurassic Tetris.mp3');
   let current = softPlayer;
 
+  // Tracks which audio element activate() has claimed as the active playback
+  // element. Used by unlock() to avoid pausing an element that activate() has
+  // already started — iOS ignores el.volume = 0 so a volume check is unreliable.
+  const _claimed = new WeakSet();
+
   function targetVol() {
     if (!settings.musicOn) return 0;
     return settings.musicVolume / 100;
@@ -970,6 +975,7 @@ const Music = (() => {
     }
     current.active.volume = targetVol();
     mlog(`activate: set ${current.label}.active.volume=${current.active.volume.toFixed(2)}`);
+    _claimed.add(current.active); // mark so unlock() .then() won't pause this element
     // Always call play() — do not guard on .paused. When the element is in a seeking
     // or buffering transitional state, .paused can be false while audio is not
     // actually playing, causing the guard to skip the play() call and leave silence.
@@ -1012,9 +1018,12 @@ const Music = (() => {
         mlog(`unlock: play ${names[i]} (was paused)`);
         el.play()
           .then(() => {
-            const vol = el.volume;
-            const keep = vol !== 0;
-            mlog(`unlock .then: ${names[i]} vol=${vol.toFixed(2)} → ${keep ? 'KEEP (activated)' : 'pause'}`);
+            // iOS ignores el.volume = 0 (volume is hardware-controlled and read-only
+            // in Safari). Volume checks are therefore unreliable. Use _claimed instead:
+            // activate() adds the element it started to _claimed before calling play(),
+            // so we know here whether this element was claimed for real playback.
+            const keep = _claimed.has(el);
+            mlog(`unlock .then: ${names[i]} vol=${el.volume.toFixed(2)} → ${keep ? 'KEEP (activated)' : 'pause'}`);
             if (!keep) el.pause();
           })
           .catch(e => mlog(`unlock .catch: ${names[i]} ${e?.name}`));
