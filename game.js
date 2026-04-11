@@ -1669,6 +1669,37 @@ document.getElementById('leaderboard-close-btn').addEventListener('click', () =>
   document.getElementById('start-screen').classList.remove('hidden');
 });
 
+// ── Mobile music log overlay (?musiclog in URL) ───────────────────────────────
+// Load the page as https://…/?musiclog to see Music debug output on-screen.
+// Useful for diagnosing iOS audio issues where DevTools is unavailable.
+(function() {
+  if (!location.search.includes('musiclog')) return;
+  Music.debug = true;
+  const el = document.createElement('div');
+  el.id = 'musiclog';
+  el.style.cssText = [
+    'position:fixed','bottom:0','left:0','right:0','z-index:9999',
+    'background:rgba(0,0,0,0.85)','color:#0f0','font:10px/1.4 monospace',
+    'padding:6px 8px','max-height:35vh','overflow-y:auto',
+    'pointer-events:none','white-space:pre-wrap','word-break:break-all'
+  ].join(';');
+  document.body.appendChild(el);
+  const orig = console.debug.bind(console);
+  console.debug = function(...args) {
+    orig(...args);
+    const line = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+    const row = document.createElement('div');
+    row.textContent = new Date().toISOString().slice(11,23) + ' ' + line;
+    el.appendChild(row);
+    // keep only last 60 lines
+    while (el.children.length > 60) el.removeChild(el.firstChild);
+    el.scrollTop = el.scrollHeight;
+  };
+  // Also log Music.play() call sites (initGame, resumeGame, togglePause, countdown)
+  // by patching gameRunning/paused state alongside the music log.
+  console.debug('[MusicLog] enabled — iOS mobile audio diagnostic mode');
+})();
+
 // ── Boot ──────────────────────────────────────────────────────────────────────
 loadSettings();
 highScore = getBestScore();
@@ -1680,8 +1711,11 @@ updateResumeBtn(); // show resume button if a saved game exists
 // iOS requires each HTMLAudioElement to be individually played inside a user gesture —
 // if only the active track is unlocked, the crossfade's play() on the next track fails
 // silently, causing music to stop after one song.
+// _unlocked flag prevents double-firing on mobile where touchstart + click both trigger this.
+let _unlocked = false;
 function onFirstGesture() {
-  if (!settings.musicOn) return;
+  if (_unlocked || !settings.musicOn) return;
+  _unlocked = true;
   Music.unlock();
 }
 document.addEventListener('click',      onFirstGesture, { once: true });
