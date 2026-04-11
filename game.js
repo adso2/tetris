@@ -998,12 +998,25 @@ const Music = (() => {
     // engine can call play() on any of them later without triggering iOS autoplay blocks.
     // Only call this from a user gesture handler.
     unlock() {
-      // Skip any element already playing (e.g. initGame was triggered on the same gesture).
+      // Play+pause each element to satisfy iOS's requirement that play() be
+      // called in a user-gesture context before it can be called later from
+      // non-gesture contexts (crossfade setInterval, etc.).
+      //
+      // IMPORTANT — .then() race: on iOS, touchstart and click handlers for the
+      // same tap can both execute before the microtask queue drains. This means
+      // activate() (called from initGame inside the click handler) can run and
+      // set el.volume = targetVol on the active element BEFORE unlock's .then()
+      // callbacks fire. The old code called el.pause() unconditionally in .then(),
+      // which silenced the track activate() had just started.
+      //
+      // Fix: only pause elements whose volume is still 0 (meaning activate()
+      // hasn't claimed them). If activate() ran first it will have set volume
+      // to targetVol — those elements must not be paused here.
       const all = [softPlayer.a, softPlayer.b, edcPlayer.a, edcPlayer.b];
       all.forEach(el => {
         if (!el.paused) return;
-        const v = el.volume; el.volume = 0;
-        el.play().then(() => { el.pause(); el.volume = v; }).catch(() => {});
+        el.volume = 0;
+        el.play().then(() => { if (el.volume === 0) el.pause(); }).catch(() => {});
       });
     },
     // Seek both players back to position 0 WITHOUT pausing.
