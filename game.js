@@ -1825,16 +1825,25 @@ setupGameCtrlBtn('gcbtn-hold',  () => { hold(); });
 setupGameCtrlBtn('gcbtn-drop',  () => { hardDrop(); vibDrop(); });
 
 // Auto-pause and save snapshot when app goes to background
+function onAppHidden() {
+  cancelCountdown(); // stop any mid-countdown — prevents unpausing while backgrounded
+  if (gameRunning && !paused) togglePause();
+  Music.pause(); // always stop music when screen off / app backgrounded
+  saveSnapshot();
+}
+function onAppVisible() {
+  // Restore music only when actively playing (not paused — music already plays
+  // on the pause screen via togglePause; don't double-start it here)
+  if (settings.musicOn && gameRunning && !paused) Music.play();
+}
+
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) {
-    cancelCountdown(); // stop any mid-countdown — prevents unpausing while backgrounded
-    if (gameRunning && !paused) togglePause();
-    Music.pause(); // always stop music when screen off / app backgrounded
-    saveSnapshot();
-  } else {
-    if (settings.musicOn && gameRunning) Music.play(); // restore only during active game
-  }
+  if (document.hidden) onAppHidden(); else onAppVisible();
 });
+// blur fires on iOS when locking the screen or switching apps, covering cases
+// where visibilitychange is unreliable on some iOS versions
+window.addEventListener('blur', onAppHidden);
+window.addEventListener('focus', onAppVisible);
 // Also save on page close/navigation
 window.addEventListener('pagehide', saveSnapshot);
 window.addEventListener('beforeunload', saveSnapshot);
