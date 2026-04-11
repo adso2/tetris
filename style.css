@@ -416,10 +416,11 @@
     pointer-events: none;
   }
   #countdown-number {
-    font-size: clamp(80px, 22vw, 180px);
+    font-size: clamp(28px, 7vw, 56px);
     color: var(--glow-cyan);
     text-shadow: 0 0 20px var(--glow-cyan), 0 0 60px var(--glow-cyan);
     font-family: inherit;
+    text-align: center;
   }
   .countdown-pop {
     animation: countdown-pop 0.9s ease-out forwards;

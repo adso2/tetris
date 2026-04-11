@@ -1571,30 +1571,20 @@ function startCountdown() {
   const screen = document.getElementById('countdown-screen');
   const numEl  = document.getElementById('countdown-number');
 
-  function tick(n) {
-    numEl.textContent = n;
-    // Restart CSS animation each tick — clear then reapply via inline style
-    // (more reliable than class-toggle on iOS WebKit)
-    numEl.style.animation = 'none';
-    void getComputedStyle(numEl).animation; // force style recalculation
-    numEl.style.animation = 'countdown-pop 0.9s ease-out forwards';
-
-    countdownTimer = setTimeout(() => {
-      if (n === 1) {
-        screen.classList.add('hidden');
-        countdownTimer = null;
-        paused = false;
-        lastTime = performance.now();
-        if (settings.musicOn) Music.play();
-        updateBtnBar();
-      } else {
-        tick(n - 1);
-      }
-    }, 1000);
-  }
-
+  numEl.textContent = 'Ready?';
+  numEl.style.animation = 'none';
+  void getComputedStyle(numEl).animation;
+  numEl.style.animation = 'countdown-pop 0.9s ease-out forwards';
   screen.classList.remove('hidden');
-  tick(3);
+
+  countdownTimer = setTimeout(() => {
+    screen.classList.add('hidden');
+    countdownTimer = null;
+    paused = false;
+    lastTime = performance.now();
+    if (settings.musicOn) Music.play();
+    updateBtnBar();
+  }, 1000);
 }
 
 function togglePause() {
