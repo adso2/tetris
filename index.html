@@ -276,6 +276,12 @@
 <script>
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js');
+    // When a new SW takes over (after an update), reload immediately so the
+    // fresh SW serves fresh code. Without this, the update only takes effect
+    // on the *next* open — the current session keeps running old cached code.
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload();
+    });
   }
 </script>
 </body>

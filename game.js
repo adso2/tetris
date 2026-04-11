@@ -1848,58 +1848,9 @@ window.addEventListener('focus', onAppVisible);
 window.addEventListener('pagehide', saveSnapshot);
 window.addEventListener('beforeunload', saveSnapshot);
 
-// ── Service Worker — caches this page for offline/airplane mode play ──────────
-if ('serviceWorker' in navigator) {
-  // Inline the SW as a blob so no separate sw.js file is needed
-  const swCode = `
-const CACHE = 'tetris-v1';
-const FONT_URLS = [
-  'https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap',
-  'https://fonts.gstatic.com/s/pressstart2p/v15/ZLfdm8T8MB6-A_A4-6oqNIFGlFVCFIAZAbPRZp_eN_0.woff2'
-];
-
-self.addEventListener('install', e => {
-  e.waitUntil(
-    caches.open(CACHE).then(cache => {
-      // Cache the page itself
-      return cache.add(self.location.href.replace(/\\/sw-inline.js.*$/, ''))
-        .catch(() => {})
-        .then(() => cache.addAll(FONT_URLS).catch(() => {}));
-    })
-  );
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', e => {
-  e.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
-    )
-  );
-  self.clients.claim();
-});
-
-self.addEventListener('fetch', e => {
-  e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(response => {
-        // Cache font files and the page itself for future offline use
-        if (e.request.url.includes('fonts.g') || e.request.url.includes('.html') || e.request.url.endsWith('/')) {
-          const clone = response.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
-        return response;
-      }).catch(() => cached || new Response('', {status: 408}));
-    })
-  );
-});
-`;
-  const blob = new Blob([swCode], {type: 'application/javascript'});
-  const swUrl = URL.createObjectURL(blob);
-  navigator.serviceWorker.register(swUrl, {scope: './'})
-    .catch(() => {}); // silently fail if SW registration fails (e.g. file://)
-}
+// ── Service Worker registration — SW logic lives in sw.js ────────────────────
+// (Previously an inline blob SW was registered here, which overrode sw.js and
+// prevented the network-first update strategy from taking effect. Removed.)
 
 // ── Dev invariant checker — call check() in the browser console ───────────────
 // Verifies that music, game state, and snapshot flags are all self-consistent.
