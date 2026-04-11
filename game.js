@@ -969,6 +969,7 @@ const Music = (() => {
       current = player;
     }
     current.active.volume = targetVol();
+    mlog(`activate: set ${current.label}.active.volume=${current.active.volume.toFixed(2)}`);
     // Always call play() — do not guard on .paused. When the element is in a seeking
     // or buffering transitional state, .paused can be false while audio is not
     // actually playing, causing the guard to skip the play() call and leave silence.
@@ -998,26 +999,27 @@ const Music = (() => {
     // engine can call play() on any of them later without triggering iOS autoplay blocks.
     // Only call this from a user gesture handler.
     unlock() {
-      // Play+pause each element to satisfy iOS's requirement that play() be
-      // called in a user-gesture context before it can be called later from
-      // non-gesture contexts (crossfade setInterval, etc.).
-      //
-      // IMPORTANT — .then() race: on iOS, touchstart and click handlers for the
-      // same tap can both execute before the microtask queue drains. This means
-      // activate() (called from initGame inside the click handler) can run and
-      // set el.volume = targetVol on the active element BEFORE unlock's .then()
-      // callbacks fire. The old code called el.pause() unconditionally in .then(),
-      // which silenced the track activate() had just started.
-      //
-      // Fix: only pause elements whose volume is still 0 (meaning activate()
-      // hasn't claimed them). If activate() ran first it will have set volume
-      // to targetVol — those elements must not be paused here.
-      const all = [softPlayer.a, softPlayer.b, edcPlayer.a, edcPlayer.b];
-      all.forEach(el => {
-        if (!el.paused) return;
+      mlog('unlock() START');
+      const all   = [softPlayer.a, softPlayer.b, edcPlayer.a, edcPlayer.b];
+      const names = [softPlayer.label+'.a', softPlayer.label+'.b',
+                     edcPlayer.label+'.a',  edcPlayer.label+'.b'];
+      all.forEach((el, i) => {
+        if (!el.paused) {
+          mlog(`unlock: SKIP ${names[i]} — already playing vol=${el.volume.toFixed(2)}`);
+          return;
+        }
         el.volume = 0;
-        el.play().then(() => { if (el.volume === 0) el.pause(); }).catch(() => {});
+        mlog(`unlock: play ${names[i]} (was paused)`);
+        el.play()
+          .then(() => {
+            const vol = el.volume;
+            const keep = vol !== 0;
+            mlog(`unlock .then: ${names[i]} vol=${vol.toFixed(2)} → ${keep ? 'KEEP (activated)' : 'pause'}`);
+            if (!keep) el.pause();
+          })
+          .catch(e => mlog(`unlock .catch: ${names[i]} ${e?.name}`));
       });
+      mlog('unlock() END (sync)');
     },
     // Seek both players back to position 0 WITHOUT pausing.
     // Seeking while paused (or playing) does not call pause() so there is no
@@ -1696,33 +1698,68 @@ document.getElementById('leaderboard-close-btn').addEventListener('click', () =>
 
 // ── Mobile music log overlay (?musiclog in URL) ───────────────────────────────
 // Load the page as https://…/?musiclog to see Music debug output on-screen.
-// Useful for diagnosing iOS audio issues where DevTools is unavailable.
+// Captures first 150 events (startup sequence) then stops.
+// Tap COPY button to copy all lines to clipboard.
 (function() {
   if (!location.search.includes('musiclog')) return;
   Music.debug = true;
-  const el = document.createElement('div');
-  el.id = 'musiclog';
-  el.style.cssText = [
+
+  // Outer wrapper — pointer-events:auto so the log area itself is scrollable
+  const wrap = document.createElement('div');
+  wrap.style.cssText = [
     'position:fixed','bottom:0','left:0','right:0','z-index:9999',
-    'background:rgba(0,0,0,0.85)','color:#0f0','font:10px/1.4 monospace',
-    'padding:6px 8px','max-height:35vh','overflow-y:auto',
-    'pointer-events:none','white-space:pre-wrap','word-break:break-all'
+    'display:flex','flex-direction:column',
+    'max-height:40vh','pointer-events:auto'
   ].join(';');
-  document.body.appendChild(el);
+
+  // Toolbar with COPY button
+  const bar = document.createElement('div');
+  bar.style.cssText = [
+    'background:#111','padding:3px 8px','display:flex',
+    'justify-content:space-between','align-items:center',
+    'font:9px/1 monospace','color:#0f0'
+  ].join(';');
+  const title = document.createElement('span');
+  title.textContent = '🎵 MUSICLOG (first 150 events)';
+  const copyBtn = document.createElement('button');
+  copyBtn.textContent = 'COPY';
+  copyBtn.style.cssText = 'font:9px monospace;background:#0a0;color:#fff;border:none;padding:2px 6px;border-radius:2px;cursor:pointer';
+  copyBtn.addEventListener('click', () => {
+    const text = Array.from(log.children).map(r => r.textContent).join('\n');
+    navigator.clipboard?.writeText(text).then(() => { copyBtn.textContent = 'OK'; setTimeout(() => { copyBtn.textContent = 'COPY'; }, 1500); });
+  });
+  bar.appendChild(title); bar.appendChild(copyBtn);
+
+  // Scrollable log area
+  const log = document.createElement('div');
+  log.style.cssText = [
+    'background:rgba(0,0,0,0.9)','color:#0f0','font:10px/1.4 monospace',
+    'padding:4px 8px','overflow-y:auto','flex:1',
+    'white-space:pre-wrap','word-break:break-all','-webkit-overflow-scrolling:touch'
+  ].join(';');
+
+  wrap.appendChild(bar); wrap.appendChild(log);
+  document.body.appendChild(wrap);
+
+  let count = 0;
+  const MAX = 150;
   const orig = console.debug.bind(console);
   console.debug = function(...args) {
     orig(...args);
+    if (count >= MAX) return;
+    count++;
     const line = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
     const row = document.createElement('div');
     row.textContent = new Date().toISOString().slice(11,23) + ' ' + line;
-    el.appendChild(row);
-    // keep only last 60 lines
-    while (el.children.length > 60) el.removeChild(el.firstChild);
-    el.scrollTop = el.scrollHeight;
+    log.appendChild(row);
+    if (count === MAX) {
+      const stop = document.createElement('div');
+      stop.style.color = '#ff0';
+      stop.textContent = '── log full (150 entries) ──';
+      log.appendChild(stop);
+    }
   };
-  // Also log Music.play() call sites (initGame, resumeGame, togglePause, countdown)
-  // by patching gameRunning/paused state alongside the music log.
-  console.debug('[MusicLog] enabled — iOS mobile audio diagnostic mode');
+  console.debug('[MusicLog] enabled — tap COPY to share log');
 })();
 
 // ── Boot ──────────────────────────────────────────────────────────────────────
